@@ -48,7 +48,7 @@
   function initials(s) { return (s.first[0] + s.last[0]).toUpperCase(); }
   function medalWord(m) { return m ? '<span class="m-' + m + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</span>' : ''; }
   function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.id < b.id ? -1 : 1); }
-  function save() { TP.save(); }
+  function save() { recalcRewards(); TP.save(); }
   var toastT;
   function toast(msg, pb) {
     var t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (pb ? ' pb' : '');
@@ -458,19 +458,65 @@
   var SEEN_KEY = 'titanPortalDemo.badgesSeen.v4';
   var FILE_LIMIT = 500000;
   function rm(n) { return 'RM ' + (Math.round(Number(n) * 100) / 100).toFixed(2); }
-  function feeState(f) { if (f.status === 'paid') return 'paid'; return f.due && f.due < todayISO() ? 'overdue' : 'due'; }
-  function feeLabel(st) { return st === 'paid' ? 'Paid' : st === 'pending' ? 'Pending verification' : st === 'overdue' ? 'Overdue' : st === 'na' ? 'Not applicable' : 'Due'; }
+  function feeState(f) {
+    if (!f) return 'na';
+    if (f.status === 'reward') return 'reward';
+    if (f.status === 'partial') return 'partial';
+    if ((f.cashPaid || 0) >= f.amount && f.amount > 0) return 'paid';
+    if (f.status === 'paid' && !(f.rewardApplied > 0)) return 'paid';
+    var out = Math.max(0, Math.round((f.amount - (f.cashPaid || 0) - (f.rewardApplied || 0)) * 100) / 100);
+    if (out <= 0 && (f.rewardApplied || 0) > 0 && !(f.cashPaid > 0)) return 'reward';
+    if (out > 0 && (f.rewardApplied || 0) > 0) return 'partial';
+    if (out <= 0) return 'paid';
+    return f.due && f.due < todayISO() ? 'overdue' : 'due';
+  }
+  function feeLabel(st) { return st === 'paid' ? 'Paid' : st === 'reward' ? 'Paid by reward' : st === 'partial' ? 'Partly paid' : st === 'pending' ? 'Pending verification' : st === 'overdue' ? 'Overdue' : st === 'na' ? 'Not applicable' : 'Due'; }
+  function planById(id) { return (db.plans || []).filter(function (p) { return p.id === id; })[0]; }
+  function planOf(s) { return s ? planById(s.planId) : null; }
+  function rewardCredit(sid) { return (db.rewards || []).filter(function (r) { return r.swimmerId === sid; }).reduce(function (n, r) { return n + Number(r.amount); }, 0); }
+  function rewardUsed(sid) { return (db.fees || []).filter(function (f) { return f.swimmerId === sid; }).reduce(function (n, f) { return n + Number(f.rewardApplied || 0); }, 0); }
+  function outstandingOf(f) { return Math.max(0, Math.round((Number(f.amount) - Number(f.cashPaid || 0) - Number(f.rewardApplied || 0)) * 100) / 100); }
+  function recalcRewards() {
+    (db.fees || []).forEach(function (f) { f.cashPaid = Number(f.cashPaid || 0); if ((f.paidBy === 'cash' || f.cashPaid > 0) && f.status === 'paid' && !(f.cashPaid > 0)) f.cashPaid = Number(f.amount); });
+    db.swimmers.forEach(function (s) {
+      var plan = planOf(s);
+      (db.fees || []).filter(function (f) { return f.swimmerId === s.id; }).forEach(function (f) {
+        if (plan && !(f.cashPaid > 0) && String(f.title || '').indexOf('Monthly training fee') === 0) f.amount = plan.amount;
+        f.rewardApplied = 0;
+      });
+      var bal = rewardCredit(s.id);
+      (db.fees || []).filter(function (f) { return f.swimmerId === s.id && f.cashPaid < f.amount; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; }).forEach(function (f) {
+        var need = Math.round((f.amount - f.cashPaid) * 100) / 100;
+        var apply = Math.min(bal, need);
+        apply = Math.round(apply * 100) / 100;
+        f.rewardApplied = apply;
+        bal = Math.round((bal - apply) * 100) / 100;
+        var out = Math.round((f.amount - f.cashPaid - apply) * 100) / 100;
+        if (out <= 0 && f.cashPaid <= 0) f.status = 'reward';
+        else if (out <= 0) f.status = 'paid';
+        else if (apply > 0) f.status = 'partial';
+        else f.status = 'unpaid';
+      });
+      (db.fees || []).filter(function (f) { return f.swimmerId === s.id && f.cashPaid >= f.amount && f.amount > 0; }).forEach(function (f) { f.rewardApplied = 0; f.status = 'paid'; if (!f.paidBy) f.paidBy = 'cash'; });
+    });
+  }
   function ymOf(due) { return String(due || '').slice(0, 7); }
   function feesInMonth(sid, ym) { return (db.fees || []).filter(function (f) { return f.swimmerId === sid && ymOf(f.due) === ym; }); }
   function monthPending(sid, ym) { return (db.slips || []).some(function (s) { return s.swimmerId === sid && s.status === 'pending' && (s.months || []).indexOf(ym) >= 0; }); }
   function monthCell(sid, ym) {
     var list = feesInMonth(sid, ym);
-    if (!list.length) return { state: 'na', amount: 0 };
+    if (!list.length) return { state: 'na', amount: 0, reward: 0, cash: 0, out: 0 };
     var amount = list.reduce(function (n, f) { return n + Number(f.amount); }, 0);
-    if (list.every(function (f) { return f.status === 'paid'; })) return { state: 'paid', amount: amount };
-    if (monthPending(sid, ym)) return { state: 'pending', amount: amount };
-    if (list.some(function (f) { return f.status !== 'paid' && f.due < todayISO(); })) return { state: 'overdue', amount: amount };
-    return { state: 'due', amount: amount };
+    var reward = list.reduce(function (n, f) { return n + Number(f.rewardApplied || 0); }, 0);
+    var cash = list.reduce(function (n, f) { return n + Number(f.cashPaid || 0); }, 0);
+    var out = Math.max(0, Math.round((amount - reward - cash) * 100) / 100);
+    var state = 'due';
+    if (list.every(function (f) { return feeState(f) === 'paid' || (f.cashPaid || 0) >= f.amount; })) state = 'paid';
+    else if (out <= 0 && cash <= 0 && reward > 0) state = 'reward';
+    else if (monthPending(sid, ym) && out > 0) state = 'pending';
+    else if (reward > 0 && out > 0) state = 'partial';
+    else if (list.some(function (f) { return outstandingOf(f) > 0 && f.due < todayISO(); })) state = 'overdue';
+    return { state: state, amount: amount, reward: reward, cash: cash, out: out };
   }
   function daysUntil(iso) { var d = Math.round((parseISO(iso) - parseISO(todayISO())) / 86400000); if (d > 1) return d + ' days to go'; if (d === 1) return 'Tomorrow'; if (d === 0) return 'Today'; return Math.abs(d) + ' days ago'; }
   function targetOf(sid, ev) { var t = (db.targets || []).filter(function (x) { return x.swimmerId === sid && x.event === ev; })[0]; return t ? t.time : null; }
@@ -495,16 +541,32 @@
   function yearTotals(sid) {
     var y = feeYear();
     var list = (db.fees || []).filter(function (f) { return (!sid || f.swimmerId === sid) && String(f.due).slice(0, 4) === y; });
-    return { paid: list.filter(function (f) { return f.status === 'paid'; }).reduce(function (n, f) { return n + Number(f.amount); }, 0), out: list.filter(function (f) { return f.status !== 'paid'; }).reduce(function (n, f) { return n + Number(f.amount); }, 0) };
+    var paid = 0, out = 0;
+    list.forEach(function (f) { paid += Number(f.cashPaid || 0) + Number(f.rewardApplied || 0); out += outstandingOf(f); });
+    return { paid: Math.round(paid * 100) / 100, out: Math.round(out * 100) / 100 };
   }
   function yearGrid(sid) {
     var y = feeYear(), cells = '';
     for (var m = 1; m <= 12; m++) {
       var ym = y + '-' + (m < 10 ? '0' : '') + m, cell = monthCell(sid, ym);
-      cells += '<div class="mcell ' + cell.state + '"><b>' + MONTHS[m - 1] + '</b><span>' + feeLabel(cell.state) + '</span>' + (cell.state === 'na' ? '' : '<small>' + rm(cell.amount) + '</small>') + '</div>';
+      var label = cell.state === 'partial' ? 'Partly paid — ' + rm(cell.out) + ' due' : feeLabel(cell.state);
+      var detail = cell.state === 'na' ? '' : '<small>Fee ' + rm(cell.amount) + '</small><small>Reward ' + rm(cell.reward) + '</small><small>Paid ' + rm(cell.cash) + '</small><small>Due ' + rm(cell.out) + '</small>';
+      cells += '<div class="mcell ' + cell.state + '"><b>' + MONTHS[m - 1] + '</b><span>' + label + '</span>' + detail + '</div>';
     }
     var tot = yearTotals(sid);
     return '<div class="yeargrid">' + cells + '</div><p class="yeartot"><b>Paid ' + rm(tot.paid) + '</b> · outstanding ' + rm(tot.out) + '</p>';
+  }
+  function rewardLines(sid) {
+    var credits = (db.rewards || []).filter(function (r) { return r.swimmerId === sid; }).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var debits = (db.fees || []).filter(function (f) { return f.swimmerId === sid && f.rewardApplied > 0; }).slice().sort(function (a, b) { return a.due < b.due ? -1 : 1; });
+    var html = credits.map(function (r) { var res = (db.results || []).filter(function (x) { return x.id === r.resultId; })[0]; return '<div class="sess"><span><b>+ ' + rm(r.amount) + '</b> · ' + fmtShort(r.date) + '<br><span class="small">' + esc(r.reason) + (res ? ' · ' + evName(res.event) + (res.medal ? ' ' + res.medal : '') : '') + '</span></span></div>'; }).join('');
+    html += debits.map(function (f) { return '<div class="sess"><span><b>− ' + rm(f.rewardApplied) + '</b> applied to ' + MONTHS[+ymOf(f.due).slice(5) - 1] + ' ' + ymOf(f.due).slice(0, 4) + '</span></div>'; }).join('');
+    return html || '<p class="empty">No rewards yet.</p>';
+  }
+  function rewardCard(sid) {
+    var earned = rewardCredit(sid), used = rewardUsed(sid), bal = Math.round((earned - used) * 100) / 100;
+    var s = sw(sid), plan = planOf(s);
+    return '<div class="card reward-card" style="margin-bottom:14px"><h3 class="card-t">Reward balance</h3><div class="bal">' + rm(bal) + '</div><p class="small muted">Earned ' + rm(earned) + ' · applied ' + rm(used) + (plan ? ' · plan ' + esc(plan.name) + ' ' + rm(plan.amount) + '/month' : '') + '</p>' + rewardLines(sid) + '</div>';
   }
   function slipPreview(slip) {
     var href = slip.slipHref || '';
@@ -520,30 +582,31 @@
     }).join('');
   }
   function slipForm(sid) {
-    var open = (db.fees || []).filter(function (f) { return f.swimmerId === sid && f.status !== 'paid' && String(f.due).slice(0, 4) === feeYear() && !monthPending(sid, ymOf(f.due)); });
-    if (!open.length) return '<p class="hint">Every fee in ' + feeYear() + ' is already marked paid.</p>';
-    return '<form class="form" id="slipForm" data-sid="' + sid + '"><div class="f"><label>Payment slip</label><input name="file" type="file" accept="image/*,.pdf,application/pdf" required><div class="hint">Image or PDF, max 500 KB in this demo. Pay the club directly — uploading a slip does not take payment.</div></div><div class="f"><label>Months this payment covers</label><div class="checks">' + open.map(function (f) { var ym = ymOf(f.due); return '<label class="chk"><input type="checkbox" name="months" value="' + ym + '">' + MONTHS[+ym.slice(5) - 1] + ' ' + ym.slice(0, 4) + ' · ' + rm(f.amount) + '</label>'; }).join('') + '</div></div><div class="row c2"><div class="f"><label>Amount (RM)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="f"><label>Date paid</label><input name="paidOn" type="date" value="' + todayISO() + '" required></div></div><div class="row c2"><div class="f"><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>DuitNow</option></select></div><div class="f"><label>Reference (optional)</label><input name="reference" placeholder="EXAMPLE-1234"></div></div><div class="f"><label>Note (optional)</label><input name="note" placeholder="Anything the club should know"></div><div class="actions"><button class="btn" type="submit">Submit slip</button><span class="small" id="slipErr" style="color:var(--crimson);font-weight:800"></span></div></form>';
+    var open = (db.fees || []).filter(function (f) { return f.swimmerId === sid && outstandingOf(f) > 0 && String(f.due).slice(0, 4) === feeYear() && !monthPending(sid, ymOf(f.due)); });
+    if (!open.length) return '<p class="hint">Nothing left to pay in ' + feeYear() + '.</p>';
+    return '<form class="form" id="slipForm" data-sid="' + sid + '"><div class="f"><label>Payment slip</label><input name="file" type="file" accept="image/*,.pdf,application/pdf" required><div class="hint">Image or PDF, max 500 KB in this demo. Pay the club directly — uploading a slip does not take payment. A slip can cover the amount still due on a partly paid month.</div></div><div class="f"><label>Months this payment covers</label><div class="checks">' + open.map(function (f) { var ym = ymOf(f.due); return '<label class="chk"><input type="checkbox" name="months" value="' + ym + '">' + MONTHS[+ym.slice(5) - 1] + ' ' + ym.slice(0, 4) + ' · ' + rm(outstandingOf(f)) + ' due</label>'; }).join('') + '</div></div><div class="row c2"><div class="f"><label>Amount (RM)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="f"><label>Date paid</label><input name="paidOn" type="date" value="' + todayISO() + '" required></div></div><div class="row c2"><div class="f"><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>DuitNow</option></select></div><div class="f"><label>Reference (optional)</label><input name="reference" placeholder="EXAMPLE-1234"></div></div><div class="f"><label>Note (optional)</label><input name="note" placeholder="Anything the club should know"></div><div class="actions"><button class="btn" type="submit">Submit slip</button><span class="small" id="slipErr" style="color:var(--crimson);font-weight:800"></span></div></form>';
   }
   function feesView(ids, staff) {
     var h = '<div class="callout">Please pay the club directly; admin will update the status after checking your slip. This preview cannot take payment.</div>' + yearSwitcher();
     ids.forEach(function (sid) {
-      var s = sw(sid);
-      h += '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(s ? fullName(s) : 'Fees') + ' · ' + feeYear() + '</h3>' + yearGrid(sid) + '<h3 class="card-t" style="margin-top:16px">Upload a payment slip</h3>' + slipForm(sid) + '</div>';
+      var s = sw(sid), plan = planOf(s);
+      h += rewardCard(sid) + '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(s ? fullName(s) : 'Fees') + ' · ' + feeYear() + '</h3>' + (plan ? '<p class="small">Plan: <b>' + esc(plan.name) + '</b> · ' + rm(plan.amount) + '/month' + (plan.example ? ' <span class="hint">(example amount)</span>' : '') + '</p>' : '') + yearGrid(sid) + (db.allowPlanRequests ? '<h3 class="card-t" style="margin-top:16px">Request a plan</h3><form class="form" data-kind="plan-request" data-sid="' + sid + '"><div class="row c2"><div class="f"><label>Plan</label><select name="planId">' + (db.plans || []).map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + ' · ' + rm(p.amount) + (p.example ? ' (example)' : '') + '</option>'; }).join('') + '</select></div><div class="f"><label>From month</label><input name="from" type="month" value="' + todayISO().slice(0, 7) + '"></div></div><div class="actions"><button class="btn sm" type="submit">Request plan change</button></div><p class="hint">Admin approves this. It changes the fee for that month onward.</p></form>' : '') + '<h3 class="card-t" style="margin-top:16px">Upload a payment slip</h3>' + slipForm(sid) + '</div>';
     });
     h += '<div class="card"><h3 class="card-t">Slip history</h3>' + slipHistory(ids) + '</div>';
     return h;
   }
   function viewFeesAdmin() {
     var y = feeYear();
-    var open = (db.fees || []).filter(function (f) { return feeState(f) !== 'paid'; });
-    var sum = open.reduce(function (n, f) { return n + Number(f.amount); }, 0);
+    var open = (db.fees || []).filter(function (f) { return outstandingOf(f) > 0; });
+    var sum = open.reduce(function (n, f) { return n + outstandingOf(f); }, 0);
+    var clubReward = db.swimmers.reduce(function (n, s) { return n + Math.max(0, Math.round((rewardCredit(s.id) - rewardUsed(s.id)) * 100) / 100); }, 0);
     var queue = (db.slips || []).filter(function (s) { return s.status === 'pending'; });
     var club = '';
     for (var m = 1; m <= 12; m++) {
       var ym = y + '-' + (m < 10 ? '0' : '') + m;
-      var counts = { paid: 0, pending: 0, due: 0, overdue: 0, na: 0 }, money = { paid: 0, out: 0 };
-      db.swimmers.forEach(function (s) { var c = monthCell(s.id, ym); counts[c.state] = (counts[c.state] || 0) + 1; if (c.state === 'paid') money.paid += c.amount; else if (c.state !== 'na') money.out += c.amount; });
-      club += '<tr><td>' + MONTHS[m - 1] + '</td><td>' + counts.paid + '</td><td>' + counts.pending + '</td><td>' + counts.due + '</td><td>' + counts.overdue + '</td><td>' + rm(money.paid) + '</td><td>' + rm(money.out) + '</td></tr>';
+      var counts = { paid: 0, reward: 0, partial: 0, pending: 0, due: 0, overdue: 0, na: 0 }, money = { paid: 0, out: 0 };
+      db.swimmers.forEach(function (s) { var c = monthCell(s.id, ym); counts[c.state] = (counts[c.state] || 0) + 1; money.paid += c.cash + c.reward; if (c.state !== 'na') money.out += c.out; });
+      club += '<tr><td>' + MONTHS[m - 1] + '</td><td>' + counts.paid + '</td><td>' + counts.reward + '</td><td>' + counts.partial + '</td><td>' + counts.pending + '</td><td>' + counts.due + '</td><td>' + counts.overdue + '</td><td>' + rm(money.paid) + '</td><td>' + rm(money.out) + '</td></tr>';
     }
     var q = queue.length ? queue.map(function (s) {
       var who = sw(s.swimmerId);
@@ -554,12 +617,19 @@
       var pf = (db.fees || []).filter(function (f) { return f.id === S.payId; })[0];
       if (pf) manual = '<div class="card" style="margin-bottom:14px"><h3 class="card-t">Mark paid — ' + esc(pf.title) + '</h3><form class="form" id="feePayForm"><input type="hidden" name="id" value="' + pf.id + '"><div class="row c3"><div class="f"><label>Date paid</label><input name="paidOn" type="date" value="' + todayISO() + '" required></div><div class="f"><label>Method</label><select name="method"><option>Cash</option><option>Bank transfer</option><option>DuitNow</option></select></div><div class="f"><label>Reference (optional)</label><input name="reference" placeholder="EXAMPLE-1234"></div></div><div class="actions"><button class="btn sm" type="submit">Save as paid</button><button class="btn sm ghost" type="button" data-act="cancel-pay">Cancel</button></div></form></div>';
     }
-    return '<div class="h-row"><h2 class="sec">Fees <em>overview</em></h2><span class="muted small">' + open.length + ' open · ' + rm(sum) + '</span></div>' + yearSwitcher() +
+    var planForms = (db.plans || []).map(function (p) { return '<form class="form" data-kind="plan-edit" data-id="' + p.id + '" style="margin-bottom:10px"><div class="row c3"><div class="f"><label>Plan</label><input name="name" value="' + esc(p.name) + '"></div><div class="f"><label>Sessions / week</label><input name="sessions" type="number" min="1" value="' + p.sessions + '"></div><div class="f"><label>RM / month' + (p.example ? ' (example)' : '') + '</label><input name="amount" type="number" min="0" step="0.01" value="' + p.amount + '"></div></div><div class="actions"><button class="btn sm" type="submit">Save plan</button></div></form>'; }).join('');
+    var rewardAdmin = db.swimmers.map(function (s) {
+      var resos = (db.results || []).filter(function (r) { return r.swimmerId === s.id; }).slice(-8);
+      return '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(fullName(s)) + ' · rewards</h3><p class="small">Balance ' + rm(Math.round((rewardCredit(s.id) - rewardUsed(s.id)) * 100) / 100) + ' · plan ' + esc(planOf(s) ? planOf(s).name : 'none') + '</p><form class="form" data-kind="set-plan" data-sid="' + s.id + '"><div class="row c2"><div class="f"><label>Plan</label><select name="planId">' + (db.plans || []).map(function (p) { return '<option value="' + p.id + '"' + (s.planId === p.id ? ' selected' : '') + '>' + esc(p.name) + ' · ' + rm(p.amount) + (p.example ? ' (example)' : '') + '</option>'; }).join('') + '</select></div><div class="actions"><button class="btn sm" type="submit">Set plan</button></div></div></form>' + rewardLines(s.id) + '<form class="form" data-kind="add-reward" data-sid="' + s.id + '" style="margin-top:8px"><div class="row c3"><div class="f"><label>Reward RM</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="f"><label>Date</label><input name="date" type="date" value="' + todayISO() + '"></div><div class="f"><label>Linked result</label><select name="resultId"><option value="">None</option>' + resos.map(function (r) { return '<option value="' + r.id + '">' + esc(r.competition) + ' · ' + evName(r.event) + (r.medal ? ' · ' + r.medal : '') + '</option>'; }).join('') + '</select></div></div><div class="f"><label>Reason</label><input name="reason" placeholder="Example meet — gold medal" required></div><div class="actions"><button class="btn sm" type="submit">Add reward</button></div></form></div>';
+    }).join('');
+    var reqs = (db.planRequests || []).filter(function (r) { return r.status === 'pending'; });
+    return '<div class="h-row"><h2 class="sec">Fees <em>overview</em></h2><span class="muted small">' + open.length + ' open · ' + rm(sum) + ' · reward balances ' + rm(clubReward) + '</span></div>' + yearSwitcher() +
+      '<div class="card" style="margin-bottom:14px"><h3 class="card-t">Training plans</h3><p class="hint">Amounts marked example are placeholders. Edit them to the club’s real fees. 2 trainings per week is RM250.</p>' + planForms + '<p class="small">' + (db.allowPlanRequests ? 'Families may request a plan for an upcoming month.' : 'Family plan requests are off.') + ' <button class="btn sm ghost" data-act="toggle-plans">' + (db.allowPlanRequests ? 'Turn requests off' : 'Allow requests') + '</button></p>' + (reqs.length ? reqs.map(function (r) { var s = sw(r.swimmerId), p = planById(r.planId); return '<div class="sess"><span><b>' + esc(s ? fullName(s) : '') + '</b> → ' + esc(p ? p.name : '') + ' from ' + esc(r.from) + '</span><span><button class="btn sm" data-act="approve-plan" data-id="' + r.id + '">Approve</button> <button class="btn sm ghost" data-act="reject-plan" data-id="' + r.id + '">Reject</button></span></div>'; }).join('') : '') + '</div>' + rewardAdmin +
       '<div class="card" style="margin-bottom:14px"><h3 class="card-t">Payment slips to verify</h3>' + q + '</div>' + manual +
       db.swimmers.map(function (s) { return '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(fullName(s)) + '</h3>' + yearGrid(s.id) + '</div>'; }).join('') +
-      '<div class="card" style="margin-bottom:14px"><h3 class="card-t">Club-wide · ' + y + '</h3><div class="scroll-x"><table class="t"><thead><tr><th>Month</th><th>Paid</th><th>Pending</th><th>Due</th><th>Overdue</th><th>RM paid</th><th>RM outstanding</th></tr></thead><tbody>' + club + '</tbody></table></div></div>' +
+      '<div class="card" style="margin-bottom:14px"><h3 class="card-t">Club-wide · ' + y + '</h3><div class="scroll-x"><table class="t"><thead><tr><th>Month</th><th>Paid</th><th>Reward</th><th>Partly</th><th>Pending</th><th>Due</th><th>Overdue</th><th>RM settled</th><th>RM outstanding</th></tr></thead><tbody>' + club + '</tbody></table></div></div>' +
       '<div class="card"><h3 class="card-t">Mark a fee paid manually</h3><p class="hint">Use this for cash at the pool, or any payment with no slip.</p><div class="scroll-x"><table class="t"><thead><tr><th>Item</th><th>Swimmer</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>' +
-      (db.fees || []).filter(function (f) { return f.status !== 'paid'; }).map(function (f) { var who = sw(f.swimmerId), st = feeState(f); return '<tr><td>' + esc(f.title) + '</td><td>' + esc(who ? fullName(who) : '') + '</td><td>' + rm(f.amount) + '</td><td><span class="status st-' + st + '">' + feeLabel(st) + '</span></td><td><button class="btn sm" data-act="pay-fee" data-id="' + f.id + '">Mark paid</button></td></tr>'; }).join('') +
+      (db.fees || []).filter(function (f) { return outstandingOf(f) > 0; }).map(function (f) { var who = sw(f.swimmerId), st = monthCell(f.swimmerId, ymOf(f.due)).state; return '<tr><td>' + esc(f.title) + '</td><td>' + esc(who ? fullName(who) : '') + '</td><td>' + rm(outstandingOf(f)) + ' due</td><td><span class="status st-' + st + '">' + (st === 'partial' ? 'Partly paid — ' + rm(outstandingOf(f)) + ' due' : feeLabel(st)) + '</span></td><td><button class="btn sm" data-act="pay-fee" data-id="' + f.id + '">Mark paid</button></td></tr>'; }).join('') +
       '</tbody></table></div></div><div class="card" style="margin-top:14px"><h3 class="card-t">Add a fee</h3><form class="form" id="feeForm"><div class="f"><label>Description</label><input name="title" placeholder="Monthly training fee — Jan 2027" required></div><div class="row c2"><div class="f"><label>Amount (RM)</label><input name="amount" type="number" min="0" step="0.01" required></div><div class="f"><label>Due date</label><input name="due" type="date" required></div></div><div class="f"><label>Swimmer</label><select name="sid">' + swimmerOptions('') + '</select></div><div class="actions"><button class="btn" type="submit">Add fee</button></div></form><h3 class="card-t" style="margin-top:18px">All swimmers</h3><form class="form" id="feeBulk"><div class="f"><label>Description</label><input name="title" value="Monthly training fee — Jan 2027" required></div><div class="row c2"><div class="f"><label>Amount (RM)</label><input name="amount" type="number" min="0" step="0.01" value="180" required></div><div class="f"><label>Due date</label><input name="due" type="date" required></div></div><div class="actions"><button class="btn dark" type="submit">Add monthly fee for all swimmers</button></div></form></div>';
   }
   function compCard(c, ids) {
@@ -717,12 +787,19 @@
       var slip = (db.slips || []).filter(function (s) { return s.id === el.dataset.id; })[0];
       if (slip && slip.status === 'pending') {
         slip.status = 'verified'; slip.verifiedBy = S.user.name; slip.verifiedOn = todayISO();
-        (slip.months || []).forEach(function (ym) { feesInMonth(slip.swimmerId, ym).forEach(function (f) { if (f.status !== 'paid') { f.status = 'paid'; f.paidOn = slip.paidOn; f.method = slip.method; f.reference = slip.reference || ''; f.verifiedBy = S.user.name; f.verifiedOn = todayISO(); } }); });
+        var left = Number(slip.amount);
+        (slip.months || []).forEach(function (ym) { feesInMonth(slip.swimmerId, ym).forEach(function (f) { var due = outstandingOf(f); var pay = Math.min(left, due); f.cashPaid = Math.round((Number(f.cashPaid || 0) + pay) * 100) / 100; f.paidOn = slip.paidOn; f.method = slip.method; f.reference = slip.reference || ''; f.verifiedBy = S.user.name; f.verifiedOn = todayISO(); if (f.cashPaid > 0) f.paidBy = 'cash'; left = Math.round((left - pay) * 100) / 100; }); });
         save(); render(); toast('Slip verified — months marked paid');
       }
     }
     else if (a === 'cancel-pay') { S.payId = null; render(); }
-    else if (a === 'unpay-fee') { var uf = (db.fees || []).filter(function (f) { return f.id === el.dataset.id; })[0]; if (uf) { uf.status = 'unpaid'; uf.paidOn = ''; uf.method = ''; uf.reference = ''; save(); render(); toast('Marked unpaid'); } }
+    else if (a === 'unpay-fee') { var uf = (db.fees || []).filter(function (f) { return f.id === el.dataset.id; })[0]; if (uf) { uf.cashPaid = 0; uf.status = 'unpaid'; uf.paidOn = ''; uf.method = ''; uf.reference = ''; uf.paidBy = ''; save(); render(); toast('Marked unpaid'); } }
+    else if (a === 'toggle-plans') { db.allowPlanRequests = !db.allowPlanRequests; save(); render(); }
+    else if (a === 'approve-plan') {
+      var req = (db.planRequests || []).filter(function (r) { return r.id === el.dataset.id; })[0];
+      if (req) { var swm = sw(req.swimmerId), pl = planById(req.planId); if (swm && pl) { swm.planId = pl.id; (db.fees || []).filter(function (f) { return f.swimmerId === swm.id && ymOf(f.due) >= req.from && !(f.cashPaid > 0); }).forEach(function (f) { f.amount = pl.amount; }); } req.status = 'approved'; save(); render(); toast('Plan approved'); }
+    }
+    else if (a === 'reject-plan') { var rq = (db.planRequests || []).filter(function (r) { return r.id === el.dataset.id; })[0]; if (rq) { rq.status = 'rejected'; save(); render(); } }
     else if (a === 'edit-comp') { S.editId = el.dataset.id; render(); var cf = $('#compForm'); if (cf) cf.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     else if (a === 'del-qt') { var table = (db.qtTables || []).filter(function (t) { return t.id === el.dataset.id; })[0]; if (table) { table.rows.splice(+el.dataset.i, 1); save(); render(); } }
     else if (a === 'seen-badges') { var sid = el.dataset.id, seen = seenSet(); badgeCatalog(sid).forEach(function (b) { if (b.earned && seen.indexOf(sid + ':' + b.id) < 0) seen.push(sid + ':' + b.id); }); try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (err) { } render(); }
@@ -837,7 +914,7 @@
       var title = f.title.value.trim(), amount = parseFloat(f.amount.value), due = f.due.value;
       if (!title || !(amount >= 0) || !due) return;
       var ids = f.id === 'feeBulk' ? db.swimmers.map(function (s) { return s.id; }) : [f.sid.value];
-      ids.forEach(function (sid) { db.fees.push({ id: TP.newId('f'), swimmerId: sid, title: title, amount: amount, due: due, status: 'unpaid', paidOn: '', method: '', reference: '' }); });
+      ids.forEach(function (sid) { var swm = sw(sid), pl = planOf(swm), use = f.id === 'feeBulk' && pl ? pl.amount : amount; db.fees.push({ id: TP.newId('f'), swimmerId: sid, title: title, amount: use, due: due, cashPaid: 0, rewardApplied: 0, status: 'unpaid', paidOn: '', method: '', reference: '', paidBy: '' }); });
       save(); render(); toast(f.id === 'feeBulk' ? 'Monthly fee added for every swimmer' : 'Fee added'); return;
     }
     if (f.dataset.kind === 'reject-slip') {
@@ -847,6 +924,28 @@
       if (!rejected) return;
       rejected.status = 'rejected'; rejected.rejectReason = reason;
       save(); render(); toast('Slip rejected'); return;
+    }
+    if (f.dataset.kind === 'plan-edit') {
+      var pln = planById(f.dataset.id); if (!pln) return;
+      pln.name = f.name.value.trim() || pln.name; pln.sessions = +f.sessions.value || pln.sessions; pln.amount = parseFloat(f.amount.value) || 0; pln.example = false;
+      save(); render(); toast('Plan saved'); return;
+    }
+    if (f.dataset.kind === 'set-plan') {
+      var who = sw(f.dataset.sid), chosen = planById(f.planId.value);
+      if (who && chosen) { who.planId = chosen.id; (db.fees || []).filter(function (fee) { return fee.swimmerId === who.id && !(fee.cashPaid > 0); }).forEach(function (fee) { if (String(fee.title || '').indexOf('Monthly training fee') === 0) fee.amount = chosen.amount; }); }
+      save(); render(); toast('Plan updated'); return;
+    }
+    if (f.dataset.kind === 'add-reward') {
+      var ramt = parseFloat(f.amount.value);
+      if (!(ramt > 0) || !f.reason.value.trim()) return;
+      db.rewards = db.rewards || [];
+      db.rewards.push({ id: TP.newId('rw'), swimmerId: f.dataset.sid, amount: ramt, date: f.date.value || todayISO(), reason: f.reason.value.trim(), resultId: f.resultId.value });
+      save(); render(); toast('Reward added'); return;
+    }
+    if (f.dataset.kind === 'plan-request') {
+      db.planRequests = db.planRequests || [];
+      db.planRequests.push({ id: TP.newId('pr'), swimmerId: f.dataset.sid, planId: f.planId.value, from: f.from.value, status: 'pending' });
+      save(); render(); toast('Plan request sent'); return;
     }
     if (f.id === 'slipForm') {
       var months = vals('months');
@@ -866,7 +965,7 @@
     if (f.id === 'feePayForm') {
       var fee = (db.fees || []).filter(function (x) { return x.id === f.id.value; })[0];
       if (!fee) return;
-      fee.status = 'paid'; fee.paidOn = f.paidOn.value || todayISO(); fee.method = f.method.value; fee.reference = f.reference.value.trim();
+      fee.cashPaid = Number(fee.amount); fee.paidBy = 'cash'; fee.paidOn = f.paidOn.value || todayISO(); fee.method = f.method.value; fee.reference = f.reference.value.trim(); fee.verifiedBy = S.user.name; fee.verifiedOn = todayISO();
       S.payId = null; save(); render(); toast('Marked paid'); return;
     }
     if (f.id === 'compForm') {
@@ -935,5 +1034,6 @@
   // restore session
   try { var su = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); if (su) { var fu = findUser(su.email); if (fu) { S.user = fu; S.tab = homeTab(fu.role); } } } catch (e) { }
   window.TPApp = { state: S, render: render, login: function (email) { var u = findUser(email); if (u) login(u); return !!u; } };
+  recalcRewards();
   render();
 })();
