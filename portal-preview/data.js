@@ -1,8 +1,8 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v3';
-  var VERSION = 6;
+  var KEY = 'titanPortalDemo.v4';
+  var VERSION = 7;
 
   var EVENTS = [
     { id: '50SF', name: '50m Surface', kind: 'Surface' },
@@ -149,7 +149,61 @@
     remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-12', authorRole: 'parent', authorId: 'p1', authorName: 'Jason Tan (example parent)', type: 'Feedback', text: 'Mia has been practising her starts at home in the mirror. Thank you for the extra work on Saturday.', improve: '', replies: [{ id: id('y'), date: '2026-11-13', authorRole: 'coach', authorId: 'c1', authorName: 'Coach Kilian', text: 'Glad it stuck — we will keep a few start reps in Saturday’s set.' }] });
     remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-16', authorRole: 'finswimmer', authorId: 's1', authorName: 'Mia Tan', type: 'Goal', text: 'I want my 50m bifin under 37 seconds before the next meet.', improve: '', replies: [] });
 
-    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, nextId: uid + 1 };
+    function exampleSlip(label) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="280"><rect width="100%" height="100%" fill="#f4f1ea"/><text x="28" y="54" font-family="sans-serif" font-size="22" fill="#111">EXAMPLE PAYMENT SLIP</text><text x="28" y="98" font-family="sans-serif" font-size="16" fill="#333">' + label + '</text><text x="28" y="140" font-family="sans-serif" font-size="14" fill="#666">Not a real bank receipt</text></svg>';
+      return 'data:image/svg+xml,' + encodeURIComponent(svg);
+    }
+    var fees = [];
+    swimmers.forEach(function (s, i) {
+      fees.push({ id: id('f'), swimmerId: s.id, title: 'Monthly training fee — Oct 2026', amount: 180, due: '2026-10-05', status: 'paid', paidOn: '2026-10-04', method: s.id === 's1' ? 'DuitNow' : (i % 2 ? 'Cash' : 'Bank transfer'), reference: 'EXAMPLE-OCT-' + (i + 1), verifiedBy: s.id === 's1' ? 'Club Admin' : '', verifiedOn: s.id === 's1' ? '2026-10-05' : '' });
+      fees.push({ id: id('f'), swimmerId: s.id, title: 'Monthly training fee — Nov 2026', amount: 180, due: '2026-11-05', status: 'unpaid', paidOn: '', method: '', reference: '' });
+      fees.push({ id: id('f'), swimmerId: s.id, title: 'Monthly training fee — Dec 2026', amount: 180, due: '2026-12-05', status: 'unpaid', paidOn: '', method: '', reference: '' });
+    });
+    var slips = [
+      { id: id('ps'), swimmerId: 's1', months: ['2026-10'], amount: 180, paidOn: '2026-10-04', method: 'DuitNow', reference: 'EXAMPLE-OCT', note: 'Example verified transfer for October.', slipName: 'example-oct-slip.svg', slipHref: exampleSlip('Mia Tan · Oct 2026 · RM 180.00'), status: 'verified', verifiedBy: 'Club Admin', verifiedOn: '2026-10-05', rejectReason: '', submittedBy: 'Jason Tan (example parent)' },
+      { id: id('ps'), swimmerId: 's1', months: ['2026-11'], amount: 150, paidOn: '2026-11-06', method: 'Bank transfer', reference: 'EXAMPLE-NOV', note: 'Example rejected slip.', slipName: 'example-nov-slip.svg', slipHref: exampleSlip('Mia Tan · Nov 2026 · RM 150.00'), status: 'rejected', verifiedBy: '', verifiedOn: '', rejectReason: 'Example: the amount on the slip does not match RM 180. Please re-upload.', submittedBy: 'Jason Tan (example parent)' },
+      { id: id('ps'), swimmerId: 's1', months: ['2026-12'], amount: 180, paidOn: '2026-11-18', method: 'Bank transfer', reference: 'EXAMPLE-DEC', note: 'Example slip waiting for the club to check.', slipName: 'example-dec-slip.svg', slipHref: exampleSlip('Mia Tan · Dec 2026 · RM 180.00'), status: 'pending', verifiedBy: '', verifiedOn: '', rejectReason: '', submittedBy: 'Mia Tan' }
+    ];
+
+    var competitions = [
+      { id: 'k1', name: 'Example Junior Invitational 2026', start: '2026-12-06', end: '2026-12-07', venue: 'Example Aquatic Centre, Kuala Lumpur', deadline: '2026-11-28', fee: 45, notes: 'Fictional example meet — not a real competition.', docs: [{ name: 'Example invite (link)', href: 'https://example.com/example-junior-invite', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50BF', '100BF', '50SF'] }, { swimmerId: 's2', events: ['50SF', '100SF'] }, { swimmerId: 's3', events: ['50SF', '100IM'] }] },
+      { id: 'k2', name: 'Example Club Time Trial 2027', start: '2027-01-17', end: '2027-01-17', venue: 'Section 51A, Petaling Jaya', deadline: '2027-01-08', fee: 0, notes: 'Example in-house time trial. Not a real meet.', docs: [{ name: 'Example schedule (link)', href: 'https://example.com/example-time-trial', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50BF'] }, { swimmerId: 's5', events: ['50BF', '100BF'] }, { swimmerId: 's6', events: ['50BF', '50SF'] }] }
+    ];
+
+    var targets = [];
+    swimmers.forEach(function (s) {
+      s.events.forEach(function (ev, j) {
+        var pb = null;
+        results.forEach(function (r) { if (r.swimmerId === s.id && r.event === ev && (pb == null || r.time < pb)) pb = r.time; });
+        if (pb == null) return;
+        targets.push({ id: id('g'), swimmerId: s.id, event: ev, time: r2(j === 0 ? pb * 1.012 : pb * 0.975) });
+      });
+    });
+
+    function qtBase(ev) { return ({ '50SF': 32, '100SF': 72, '200SF': 160, '400SF': 340, '50BF': 36, '100BF': 82, '200BF': 180, '50AP': 28, '100IM': 70 })[ev] || 40; }
+    var qtTables = [
+      { id: 'q1', name: 'Example State QT 2026', note: 'Fictional example standards — not real qualifying times.', rows: [] },
+      { id: 'q2', name: 'Example National QT 2026', note: 'Fictional example standards, stricter than the state example. Not real.', rows: [] }
+    ];
+    EVENTS.forEach(function (e) {
+      ['F', 'M'].forEach(function (g) {
+        [[8, 11], [12, 14], [15, 18]].forEach(function (ag) {
+          var state = qtBase(e.id) * (g === 'F' ? 1.05 : 1) * (ag[0] === 8 ? 1.1 : ag[0] === 12 ? 1 : 0.93);
+          qtTables[0].rows.push({ event: e.id, gender: g, ageMin: ag[0], ageMax: ag[1], time: r2(state) });
+          qtTables[1].rows.push({ event: e.id, gender: g, ageMin: ag[0], ageMax: ag[1], time: r2(state * 0.9) });
+        });
+      });
+    });
+
+    var customBadges = [{ id: 'cb1', swimmerId: 's1', name: 'Example squad spirit', note: 'Example award for helping a new swimmer settle in.', date: '2026-11-01', by: 'Coach Kilian' }];
+
+    var media = [
+      { id: 'md1', swimmerIds: ['s1', 's2'], date: '2026-11-08', caption: 'Example: kick set at Section 51A', comment: 'Mia — keep the knees soft on the bifin kick.', kind: 'image', src: '../assets/web/gal1.webp', name: 'gal1.webp' },
+      { id: 'md2', swimmerIds: ['s1'], date: '2026-10-18', caption: 'Example: training photo', comment: 'Hold the streamline a beat longer off each wall.', kind: 'image', src: '../assets/web/prog1.webp', name: 'prog1.webp' },
+      { id: 'md3', swimmerIds: ['s1'], date: '2026-09-20', caption: 'Example technique link', comment: 'Watch the turn, then try it next session.', kind: 'link', src: 'https://example.com/example-technique-clip', name: 'Example clip' }
+    ];
+
+    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, fees: fees, slips: slips, competitions: competitions, targets: targets, qtTables: qtTables, customBadges: customBadges, media: media, nextId: uid + 1 };
   }
 
   var db = null;
