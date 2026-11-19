@@ -8,7 +8,7 @@
   var GROUPS = ['Junior', 'Development', 'Performance'];
   var DEMO_PASSWORD = 'demo1234';
 
-  var S = { user: null, tab: null, childId: null, viewSwimmer: null, calMonth: null, filter: { q: '', venue: '', group: '' }, manage: 'swimmers', editId: null, prefill: {}, att: null };
+  var S = { user: null, tab: null, childId: null, viewSwimmer: null, calMonth: null, filter: { q: '', venue: '', group: '', mine: true }, manage: 'swimmers', editId: null, prefill: {}, att: null, remFilter: 'all', editRemark: null, replyTo: null };
 
   /* ---------- helpers ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -39,6 +39,11 @@
   function sw(id) { return db.swimmers.filter(function (s) { return s.id === id; })[0]; }
   function venue(id) { return db.venues.filter(function (v) { return v.id === id; })[0]; }
   function coachName(id) { var c = db.coaches.filter(function (x) { return x.id === id; })[0] || db.admins.filter(function (x) { return x.id === id; })[0]; return c ? c.name : 'Coach'; }
+  function coachIdsOf(s) { return (s && s.coachIds) || []; }
+  function coachNames(s) { return coachIdsOf(s).map(function (id) { var c = db.coaches.filter(function (x) { return x.id === id; })[0]; return c ? c.name : ''; }).filter(Boolean); }
+  function coachMeta(s) { var n = coachNames(s); return n.length ? n.join(', ') : 'Not assigned'; }
+  function isAssignedTo(s, cid) { return coachIdsOf(s).indexOf(cid) >= 0; }
+  function isMine(s) { return !!(S.user && S.user.role === 'coach' && isAssignedTo(s, S.user.id)); }
   function fullName(s) { return s.first + ' ' + s.last; }
   function initials(s) { return (s.first[0] + s.last[0]).toUpperCase(); }
   function medalWord(m) { return m ? '<span class="m-' + m + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</span>' : ''; }
@@ -90,7 +95,7 @@
   }
   function homeTab(role) { return role === 'parent' || role === 'finswimmer' ? 'report' : 'swimmers'; }
   function login(u) {
-    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {};
+    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.remFilter = 'all';
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch (e) { }
     render(); window.scrollTo(0, 0);
   }
@@ -186,12 +191,36 @@
       '<div class="cal">' + h + '</div><div class="key"><span><i style="background:var(--ok)"></i>Present</span><span><i style="border:2px solid var(--crimson)"></i>Absent</span><span><i style="outline:2px dashed #000;outline-offset:-2px"></i>Today</span></div>';
   }
 
+  function remarkRole(r) { return r.authorRole || 'coach'; }
+  function remarkAuthor(r) { return r.authorName || coachName(r.authorId || r.coachId); }
+  function badgeRole(role) { return role === 'parent' || role === 'finswimmer' ? role : 'coach'; }
+  function roleLabel(role) { return badgeRole(role) === 'finswimmer' ? 'Finswimmer' : badgeRole(role) === 'parent' ? 'Parent' : 'Coach'; }
+  function canWriteRemark(sid) {
+    if (!S.user) return false;
+    if (S.user.role === 'finswimmer') return (S.user.swimmerId || S.user.id) === sid;
+    if (S.user.role === 'parent') return myChildren().some(function (k) { return k.id === sid; });
+    return false;
+  }
+  function ownsRemark(r) {
+    if (!S.user || !r) return false;
+    if (S.user.role === 'parent') return remarkRole(r) === 'parent' && r.authorId === S.user.id;
+    if (S.user.role === 'finswimmer') return remarkRole(r) === 'finswimmer' && r.authorId === (S.user.swimmerId || S.user.id);
+    return false;
+  }
+  function canReplyRemark() { return !!(S.user && (S.user.role === 'coach' || S.user.role === 'admin')); }
+  function remarkComposer(sid, existing) {
+    var e = existing || { text: '', type: '' };
+    return '<form class="form" id="cardRemForm" data-sid="' + sid + '"' + (existing ? ' data-id="' + existing.id + '"' : '') + ' style="margin-bottom:12px">' +
+      '<div class="f"><label>' + (existing ? 'Edit your remark' : 'Your remark') + '</label><textarea name="text" placeholder="Share feedback, a goal, or a question">' + esc(e.text || '') + '</textarea></div>' +
+      '<div class="f"><label>Type (optional)</label><select name="type"><option value="">No type</option>' + ['Feedback', 'Goal', 'Question'].map(function (t) { return '<option value="' + t + '"' + (e.type === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>' +
+      '<div class="actions"><button class="btn sm" type="submit">' + (existing ? 'Save changes' : 'Post remark') + '</button>' + (existing ? '<button class="btn sm ghost" type="button" data-act="cancel-rem">Cancel</button>' : '') + '<span class="small" id="crErr" style="color:var(--crimson);font-weight:800"></span></div></form>';
+  }
   function reportCard(sid, staff) {
     var s = sw(sid); if (!s) return '<p class="empty">Swimmer not found.</p>';
     var att = attOf(sid), md = medals(sid), pbs = pbTable(sid), flags = pbFlags(sid);
     var pbCount = pbs.filter(function (r) { return r.pb; }).length;
     var h = '<section class="hero"><div class="top-l"><div class="av">' + initials(s) + '</div><div><h2>' + esc(fullName(s)) + '</h2>' +
-      '<div class="meta"><span>Age <b>' + age(s.dob) + '</b></span><span>Group <b>' + esc(s.group) + '</b></span><span>Venue <b>' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : v); }).join(', ') + '</b></span></div></div></div>' +
+      '<div class="meta"><span>Age <b>' + age(s.dob) + '</b></span><span>Group <b>' + esc(s.group) + '</b></span><span>Venue <b>' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : v); }).join(', ') + '</b></span>' + (!staff ? '<span>Coach: <b>' + esc(coachNames(s).map(function (n) { return n.replace(/^Coach\s+/, ''); }).join(', ') || 'Not assigned') + '</b></span>' : '') + '</div></div></div>' +
       '<div class="stats"><div class="stat"><div class="n">' + att.pct + '%</div><div class="l">Attendance</div></div>' +
       '<div class="stat"><div class="n">' + pbCount + '</div><div class="l">Events with a PB</div></div>' +
       '<div class="stat"><div class="medalcount"><span class="m-gold">' + md.gold + '</span><span class="m-silver">' + md.silver + '</span><span class="m-bronze">' + md.bronze + '</span></div><div class="l"><span class="m-gold">Gold</span> · <span class="m-silver">Silver</span> · <span class="m-bronze">Bronze</span></div></div>' +
@@ -205,13 +234,24 @@
         return '<tr><td><b>' + evName(r.event) + '</b></td><td>' + (r.pb ? '<span class="time">' + fmtTime(r.pb.time) + '</span><div class="small muted">' + esc(r.pb.competition) + ' · ' + fmtShort(r.pb.date) + '</div>' : '<span class="muted">—</span>') + '</td><td>' + (r.tb ? '<span class="time" style="font-weight:700">' + fmtTime(r.tb.time) + '</span><div class="small muted">' + fmtShort(r.tb.date) + '</div>' : '<span class="muted">—</span>') + '</td></tr>';
       }).join('') + '</tbody></table></div>' : '<p class="empty">No times yet.</p>') + '</div>';
 
-    // Remarks
-    var rem = db.remarks.filter(function (r) { return r.swimmerId === sid; }).sort(byDate).reverse();
-    h += '<div class="card"><h3 class="card-t">Coach remarks</h3>' + (rem.length ? rem.map(function (r) {
-      var imp = String(r.improve || '').split(/\n+/).filter(Boolean);
-      return '<div class="remark"><div class="rh"><b>' + esc(coachName(r.coachId)) + '</b><span>' + fmtDate(r.date) + '</span></div><div>' + esc(r.text) + '</div>' +
-        (imp.length ? '<div class="imp"><b>What to improve</b><ul>' + imp.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '') + '</div>';
-    }).join('') : '<p class="empty">No remarks yet.</p>') + '</div></div>';
+    // Remarks — coaches, parents and finswimmers share one timeline
+    var roleOf = remarkRole, filter = S.remFilter || 'all';
+    var rem = db.remarks.filter(function (r) { return r.swimmerId === sid && (filter === 'all' || badgeRole(roleOf(r)) === filter); }).sort(byDate).reverse();
+    var editing = S.editRemark ? db.remarks.filter(function (r) { return r.id === S.editRemark && r.swimmerId === sid && ownsRemark(r); })[0] : null;
+    h += '<div class="card"><h3 class="card-t">Remarks</h3>' + (canWriteRemark(sid) && !editing ? remarkComposer(sid) : '') +
+      '<div class="rem-filters" role="group" aria-label="Filter remarks">' + ['all', 'coach', 'parent', 'finswimmer'].map(function (k) { return '<button type="button" data-remfilter="' + k + '" class="' + (filter === k ? 'on' : '') + '">' + (k === 'all' ? 'All' : roleLabel(k)) + '</button>'; }).join('') + '</div>' +
+      (editing ? remarkComposer(sid, editing) : '') +
+      (rem.length ? rem.map(function (r) {
+        var role = roleOf(r), imp = role === 'coach' || !r.authorRole ? String(r.improve || '').split(/\n+/).filter(Boolean) : [];
+        var replies = r.replies || [];
+        return '<div class="remark"><div class="rh"><b>' + esc(remarkAuthor(r)) + '</b>' + '<span class="role-badge role-' + badgeRole(role) + '">' + roleLabel(role) + '</span><span>' + fmtDate(r.date) + '</span></div>' +
+          (r.type ? '<div class="rem-type">' + esc(r.type) + '</div>' : '') + '<div>' + esc(r.text) + '</div>' +
+          (imp.length ? '<div class="imp"><b>What to improve</b><ul>' + imp.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '') +
+          replies.map(function (y) { return '<div class="reply"><div class="rh"><b>' + esc(y.authorName || 'Coach') + '</b><span class="role-badge role-' + badgeRole(y.authorRole || 'coach') + '">' + roleLabel(y.authorRole || 'coach') + '</span><span>' + fmtDate(y.date) + '</span></div><div>' + esc(y.text) + '</div></div>'; }).join('') +
+          '<div class="row-actions">' + (ownsRemark(r) ? '<button type="button" data-editrem="' + r.id + '">Edit</button><button type="button" data-delrem="' + r.id + '">Delete</button>' : '') + (canReplyRemark() ? '<button type="button" data-reply="' + r.id + '">Reply</button>' : '') + '</div>' +
+          (S.replyTo === r.id && canReplyRemark() ? '<form class="form" id="replyForm" data-rid="' + r.id + '" style="margin-top:8px"><div class="f"><label>Reply</label><textarea name="text" placeholder="Reply to this remark"></textarea></div><div class="actions"><button class="btn sm" type="submit">Post reply</button><button class="btn sm ghost" type="button" data-act="cancel-reply">Cancel</button></div></form>' : '') +
+          '</div>';
+      }).join('') : '<p class="empty">No remarks' + (filter === 'all' ? ' yet' : ' in this filter') + '.</p>') + '</div></div>';
 
     // Progress charts
     var evs = pbs.map(function (r) { return r.event; });
@@ -264,16 +304,17 @@
 
   function viewSwimmers() {
     if (S.viewSwimmer) return '<button class="back" data-act="back">‹ All swimmers</button>' + reportCard(S.viewSwimmer, true);
-    var f = S.filter, q = f.q.toLowerCase();
+    var f = S.filter, q = f.q.toLowerCase(), coach = S.user && S.user.role === 'coach', mine = coach && f.mine !== false;
     var list = db.swimmers.filter(function (s) {
-      return (!q || fullName(s).toLowerCase().indexOf(q) >= 0) && (!f.venue || s.venueIds.indexOf(f.venue) >= 0) && (!f.group || s.group === f.group);
+      return (!mine || isMine(s)) && (!q || fullName(s).toLowerCase().indexOf(q) >= 0) && (!f.venue || s.venueIds.indexOf(f.venue) >= 0) && (!f.group || s.group === f.group);
     }).sort(function (a, b) { return fullName(a) < fullName(b) ? -1 : 1; });
-    return '<div class="h-row"><h2 class="sec">All <em>swimmers</em></h2><span class="muted small">' + list.length + ' of ' + db.swimmers.length + ' shown</span></div>' +
+    var toggle = coach ? '<div class="scope" role="group" aria-label="Which swimmers"><button type="button" data-scope="mine" class="' + (mine ? 'on' : '') + '">My swimmers</button><button type="button" data-scope="all" class="' + (mine ? '' : 'on') + '">All swimmers</button></div>' : '';
+    return '<div class="h-row"><h2 class="sec">' + (mine ? 'My <em>swimmers</em>' : 'All <em>swimmers</em>') + '</h2><span class="muted small">' + list.length + ' of ' + db.swimmers.length + ' shown</span></div>' + toggle +
       '<div class="toolbar"><input id="fq" type="search" placeholder="Search by name…" value="' + esc(f.q) + '" aria-label="Search swimmers"><select id="fv" aria-label="Filter by venue">' + venueOptions(f.venue, true) + '</select><select id="fg" aria-label="Filter by group"><option value="">All groups</option>' + GROUPS.map(function (g) { return '<option' + (g === f.group ? ' selected' : '') + '>' + g + '</option>'; }).join('') + '</select></div>' +
       '<div class="slist">' + (list.length ? list.map(function (s) {
         var a = attOf(s.id);
         return '<button class="sc" data-open="' + s.id + '"><span class="av">' + initials(s) + '</span><span><span class="nm">' + esc(fullName(s)) + '</span><br><span class="sub">' + age(s.dob) + ' yrs · ' + esc(s.group) + ' · ' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + '</span></span><span class="att">' + a.pct + '%<small>ATTEND.</small></span></button>';
-      }).join('') : '<p class="empty">No swimmers match.</p>') + '</div>';
+      }).join('') : '<p class="empty">' + (mine ? 'No swimmers are assigned to you yet. Switch to All swimmers, or ask an admin to assign some.' : 'No swimmers match.') + '</p>') + '</div>';
   }
 
   function slotFor(vid, iso) { var v = venue(vid); if (!v) return null; var d = parseISO(iso).getDay(); return v.slots.filter(function (s) { return s.dow === d; })[0] || null; }
@@ -285,7 +326,7 @@
     var A = S.att, existing = db.attendance.filter(function (a) { return a.date === A.date && a.venueId === A.venueId; })[0];
     if (!A.marks) A.marks = existing ? JSON.parse(JSON.stringify(existing.marks)) : {};
     var slot = slotFor(A.venueId, A.date);
-    var roster = db.swimmers.filter(function (s) { return A.showAll || s.venueIds.indexOf(A.venueId) >= 0 || Object.prototype.hasOwnProperty.call(A.marks, s.id); }).sort(function (a, b) { return fullName(a) < fullName(b) ? -1 : 1; });
+    var roster = db.swimmers.filter(function (s) { return A.showAll || isMine(s) || s.venueIds.indexOf(A.venueId) >= 0 || Object.prototype.hasOwnProperty.call(A.marks, s.id); }).sort(function (a, b) { var am = isMine(a), bm = isMine(b); if (am !== bm) return am ? -1 : 1; return fullName(a) < fullName(b) ? -1 : 1; });
     var nP = roster.filter(function (s) { return A.marks[s.id]; }).length;
     var recent = db.attendance.slice().sort(byDate).reverse().slice(0, 8);
     return '<div class="h-row"><h2 class="sec">Take <em>attendance</em></h2></div><div class="grid g-rc"><div class="card"><div class="form"><div class="row c2">' +
@@ -294,7 +335,7 @@
       '<div class="callout' + (slot ? ' ok' : '') + '">' + (slot ? '✓ Scheduled session: ' + DAYS[slot.dow] + ' ' + slot.start + '–' + slot.end + ' at ' + esc(venue(A.venueId).name) : 'No regular session at this venue on ' + DAYS[parseISO(A.date).getDay()] + ' — you can still record an extra session.') + (existing ? ' · <span style="font-weight:800">Already recorded — editing it.</span>' : '') + '</div>' +
       '<div class="actions" style="justify-content:space-between"><span><span class="counter">' + nP + '</span> / ' + roster.length + ' present</span><span class="actions"><button class="btn sm ghost" data-act="att-all">Mark all present</button><button class="btn sm ghost" data-act="att-none">Clear</button></span></div>' +
       '<label class="chk' + (A.showAll ? ' on' : '') + '" style="justify-self:start"><input type="checkbox" id="aall"' + (A.showAll ? ' checked' : '') + '> Show swimmers from other venues</label>' +
-      '<div class="roster">' + roster.map(function (s) { var on = !!A.marks[s.id]; return '<label class="rs' + (on ? ' on' : '') + '"><input type="checkbox" data-mark="' + s.id + '"' + (on ? ' checked' : '') + '><span class="tick">' + (on ? '✓' : '') + '</span><span><span class="nm">' + esc(fullName(s)) + '</span><br><span class="sub">' + age(s.dob) + ' yrs · ' + esc(s.group) + '</span></span></label>'; }).join('') + '</div>' +
+      '<div class="roster">' + roster.map(function (s) { var on = !!A.marks[s.id], mine = isMine(s); return '<label class="rs' + (on ? ' on' : '') + (mine ? ' mine' : '') + '"><input type="checkbox" data-mark="' + s.id + '"' + (on ? ' checked' : '') + '><span class="tick">' + (on ? '✓' : '') + '</span><span><span class="nm">' + esc(fullName(s)) + '</span><br><span class="sub">' + age(s.dob) + ' yrs · ' + esc(s.group) + (mine && s.venueIds.indexOf(A.venueId) < 0 ? ' · other venue' : '') + '</span></span>' + (mine ? '<span class="tag">Yours</span>' : '') + '</label>'; }).join('') + '</div>' +
       '<div class="actions"><button class="btn" data-act="att-save">Save attendance</button><span class="small muted">Unticked swimmers are recorded as absent.</span></div></div></div>' +
       '<div class="card"><h3 class="card-t">Recent sessions</h3>' + recent.map(function (a) {
         var k = Object.keys(a.marks), p = k.filter(function (x) { return a.marks[x]; }).length;
@@ -356,14 +397,15 @@
   }
   function checks(name, items, selected) { return '<div class="checks">' + items.map(function (it) { var on = selected.indexOf(it[0]) >= 0; return '<label class="chk' + (on ? ' on' : '') + '"><input type="checkbox" name="' + name + '" value="' + it[0] + '"' + (on ? ' checked' : '') + '>' + esc(it[1]) + '</label>'; }).join('') + '</div>'; }
   function manageSwimmers() {
-    var e = S.editId ? sw(S.editId) : null; e = e || { first: '', last: '', dob: '', gender: 'F', group: 'Junior', venueIds: [], events: [], email: '' };
+    var e = S.editId ? sw(S.editId) : null; e = e || { first: '', last: '', dob: '', gender: 'F', group: 'Junior', venueIds: [], coachIds: [], events: [], email: '' };
     var parentsOf = function (sid) { return db.parents.filter(function (p) { return p.swimmerIds.indexOf(sid) >= 0; }).map(function (p) { return p.email; }).join(', '); };
-    return '<div class="grid g-rc"><div class="card"><h3 class="card-t">Swimmers (' + db.swimmers.length + ')</h3><div class="scroll-x"><table class="t"><thead><tr><th>Name</th><th>Age / group</th><th>Venues</th><th>Parent login</th><th>Swimmer login</th><th></th></tr></thead><tbody>' +
-      db.swimmers.map(function (s) { return '<tr><td><b>' + esc(fullName(s)) + '</b></td><td>' + age(s.dob) + ' · ' + esc(s.group) + '</td><td class="small">' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + '</td><td class="small">' + (esc(parentsOf(s.id)) || '<span class="muted">Not linked</span>') + '</td><td class="small">' + (s.email ? esc(s.email) : '<span class="muted">Not linked</span>') + '</td><td><button class="btn sm ghost" data-edit="' + s.id + '">Edit</button></td></tr>'; }).join('') +
+    return '<div class="grid g-rc"><div class="card"><h3 class="card-t">Swimmers (' + db.swimmers.length + ')</h3><div class="scroll-x"><table class="t"><thead><tr><th>Name</th><th>Age / group</th><th>Coach</th><th>Venues</th><th>Parent login</th><th>Swimmer login</th><th></th></tr></thead><tbody>' +
+      db.swimmers.map(function (s) { return '<tr><td><b>' + esc(fullName(s)) + '</b></td><td>' + age(s.dob) + ' · ' + esc(s.group) + '</td><td class="small">' + (esc(coachMeta(s)) === 'Not assigned' ? '<span class="muted">Not assigned</span>' : esc(coachMeta(s))) + '</td><td class="small">' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + '</td><td class="small">' + (esc(parentsOf(s.id)) || '<span class="muted">Not linked</span>') + '</td><td class="small">' + (s.email ? esc(s.email) : '<span class="muted">Not linked</span>') + '</td><td><button class="btn sm ghost" data-edit="' + s.id + '">Edit</button></td></tr>'; }).join('') +
       '</tbody></table></div></div><div class="card"><h3 class="card-t">' + (S.editId ? 'Edit swimmer' : 'Add swimmer') + '</h3><form class="form" id="swForm" novalidate>' +
       '<div class="row c2"><div class="f"><label>First name</label><input name="first" value="' + esc(e.first) + '" required></div><div class="f"><label>Last name</label><input name="last" value="' + esc(e.last) + '" required></div></div>' +
       '<div class="row c3"><div class="f"><label>Date of birth</label><input name="dob" type="date" value="' + esc(e.dob) + '" required></div><div class="f"><label>Gender</label><select name="gender"><option value="F"' + (e.gender === 'F' ? ' selected' : '') + '>Female</option><option value="M"' + (e.gender === 'M' ? ' selected' : '') + '>Male</option></select></div>' +
       '<div class="f"><label>Group</label><select name="group">' + GROUPS.map(function (g) { return '<option' + (g === e.group ? ' selected' : '') + '>' + g + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="f"><label>Coach</label>' + checks('coachIds', db.coaches.map(function (c) { return [c.id, c.name]; }), coachIdsOf(e)) + '<div class="hint">A swimmer can have more than one coach. Parents and the swimmer see these names on the report card.</div></div>' +
       '<div class="f"><label>Swimmer login email</label><input name="email" type="email" value="' + esc(e.email || '') + '" placeholder="swimmer@example.com"><div class="hint">Optional. They sign in with this email and the demo password, and see only their own report card.</div></div>' +
       '<div class="f"><label>Venues</label>' + checks('venueIds', db.venues.map(function (v) { return [v.id, v.name]; }), e.venueIds) + '</div>' +
       '<div class="f"><label>Main events</label>' + checks('events', db.events.map(function (v) { return [v.id, v.name]; }), e.events) + '</div>' +
@@ -379,12 +421,14 @@
       '<div class="actions"><button class="btn" type="submit">' + (S.editId ? 'Save changes' : 'Add parent') + '</button>' + (S.editId ? '<button class="btn ghost" type="button" data-act="cancel-edit">Cancel</button>' : '') + '<span class="small" id="pErr" style="color:var(--crimson);font-weight:800"></span></div></form></div></div>';
   }
   function manageCoaches() {
-    var e = S.editId ? db.coaches.filter(function (p) { return p.id === S.editId; })[0] : null; e = e || { name: '', email: '', venueIds: [] };
-    return '<div class="grid g-rc"><div class="card"><h3 class="card-t">Coaches (' + db.coaches.length + ')</h3><table class="t"><thead><tr><th>Coach</th><th>Venues</th><th></th></tr></thead><tbody>' +
-      db.coaches.map(function (c) { return '<tr><td><b>' + esc(c.name) + '</b><div class="small muted">' + esc(c.email) + '</div></td><td class="small">' + c.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + '</td><td><button class="btn sm ghost" data-edit="' + c.id + '">Edit</button></td></tr>'; }).join('') +
-      '</tbody></table><p class="small muted" style="margin-top:10px">Coaches can see and update every swimmer.</p></div><div class="card"><h3 class="card-t">' + (S.editId ? 'Edit coach' : 'Add coach') + '</h3><form class="form" id="coForm" novalidate>' +
+    var e = S.editId ? db.coaches.filter(function (p) { return p.id === S.editId; })[0] : null; e = e || { id: '', name: '', email: '', venueIds: [] };
+    var assignedIds = e.id ? db.swimmers.filter(function (s) { return isAssignedTo(s, e.id); }).map(function (s) { return s.id; }) : [];
+    return '<div class="grid g-rc"><div class="card"><h3 class="card-t">Coaches (' + db.coaches.length + ')</h3><table class="t"><thead><tr><th>Coach</th><th>Venues</th><th>Assigned swimmers</th><th></th></tr></thead><tbody>' +
+      db.coaches.map(function (c) { var list = db.swimmers.filter(function (s) { return isAssignedTo(s, c.id); }); return '<tr><td><b>' + esc(c.name) + '</b><div class="small muted">' + esc(c.email) + '</div></td><td class="small">' + c.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + '</td><td class="small"><b>' + list.length + '</b>' + (list.length ? ' · ' + list.map(function (s) { return esc(fullName(s)); }).join(', ') : ' · <span class="muted">None</span>') + '</td><td><button class="btn sm ghost" data-edit="' + c.id + '">Edit</button></td></tr>'; }).join('') +
+      '</tbody></table><p class="small muted" style="margin-top:10px">Coaches can still open every swimmer. Their list defaults to the swimmers assigned here.</p></div><div class="card"><h3 class="card-t">' + (S.editId ? 'Edit coach' : 'Add coach') + '</h3><form class="form" id="coForm" novalidate>' +
       '<div class="row c2"><div class="f"><label>Name</label><input name="name" value="' + esc(e.name) + '"></div><div class="f"><label>Login email</label><input name="email" type="email" value="' + esc(e.email) + '"></div></div>' +
       '<div class="f"><label>Usual venues</label>' + checks('venueIds', db.venues.map(function (v) { return [v.id, v.name]; }), e.venueIds) + '</div>' +
+      '<div class="f"><label>Assigned swimmers</label>' + checks('swimmerIds', db.swimmers.map(function (s) { return [s.id, fullName(s)]; }), assignedIds) + '<div class="hint">Tick to assign, untick to unassign. A swimmer can stay assigned to other coaches.</div></div>' +
       '<div class="actions"><button class="btn" type="submit">' + (S.editId ? 'Save changes' : 'Add coach') + '</button>' + (S.editId ? '<button class="btn ghost" type="button" data-act="cancel-edit">Cancel</button>' : '') + '<span class="small" id="cErr" style="color:var(--crimson);font-weight:800"></span></div></form></div></div>';
   }
   function manageVenues() {
@@ -431,11 +475,16 @@
 
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-demo],[data-act],[data-tab],[data-child],[data-open],[data-go],[data-sub],[data-edit],[data-del]');
+    var el = e.target.closest('[data-demo],[data-act],[data-tab],[data-child],[data-open],[data-go],[data-sub],[data-edit],[data-del],[data-scope],[data-remfilter],[data-editrem],[data-delrem],[data-reply]');
     if (!el) return;
     if (el.dataset.demo) { var u = findUser(el.dataset.demo); if (u) login(u); return; }
+    if (el.dataset.scope) { S.filter.mine = el.dataset.scope !== 'all'; render(); return; }
     if (el.dataset.tab) { S.tab = el.dataset.tab; S.viewSwimmer = null; S.editId = null; S.prefill = {}; render(); window.scrollTo(0, 0); return; }
-    if (el.dataset.child) { S.childId = el.dataset.child; S.calMonth = null; render(); return; }
+    if (el.dataset.child) { S.childId = el.dataset.child; S.calMonth = null; S.editRemark = null; S.replyTo = null; render(); return; }
+    if (el.dataset.remfilter) { S.remFilter = el.dataset.remfilter; render(); return; }
+    if (el.dataset.editrem) { S.editRemark = el.dataset.editrem; S.replyTo = null; render(); var rf = $('#cardRemForm'); if (rf) rf.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (el.dataset.delrem) { var rr = db.remarks.filter(function (x) { return x.id === el.dataset.delrem; })[0]; if (!ownsRemark(rr) || !confirm('Delete this remark?')) return; db.remarks = db.remarks.filter(function (x) { return x.id !== rr.id; }); if (S.editRemark === rr.id) S.editRemark = null; save(); render(); toast('Remark deleted'); return; }
+    if (el.dataset.reply) { S.replyTo = el.dataset.reply; S.editRemark = null; render(); var rp = $('#replyForm'); if (rp) rp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (el.dataset.open) { S.viewSwimmer = el.dataset.open; S.calMonth = null; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.go) { S.tab = el.dataset.go; S.prefill = { sid: el.dataset.sid }; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.sub) { S.manage = el.dataset.sub; S.editId = null; render(); return; }
@@ -444,7 +493,7 @@
     var a = el.dataset.act;
     if (a === 'home') { e.preventDefault(); if (S.user) { S.tab = homeTab(S.user.role); S.viewSwimmer = null; render(); } }
     else if (a === 'logout') logout();
-    else if (a === 'reset') { if (confirm('Reset all demo data to the original examples? Any changes you made will be lost.')) { db = TP.reset(); S.att = null; S.calMonth = null; S.editId = null; S.prefill = {}; if (S.user && !findUser(S.user.email)) S.user = null; render(); toast('Demo data reset'); } }
+    else if (a === 'reset') { if (confirm('Reset all demo data to the original examples? Any changes you made will be lost.')) { db = TP.reset(); S.att = null; S.calMonth = null; S.editId = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.remFilter = 'all'; if (S.user && !findUser(S.user.email)) S.user = null; render(); toast('Demo data reset'); } }
     else if (a === 'back') { S.viewSwimmer = null; render(); }
     else if (a === 'cal-prev' || a === 'cal-next') { var m = S.calMonth, d = new Date(m[0], m[1] + (a === 'cal-next' ? 1 : -1), 1); S.calMonth = [d.getFullYear(), d.getMonth()]; render(); }
     else if (a === 'att-all' || a === 'att-none') { $$('[data-mark]').forEach(function (c) { S.att.marks[c.dataset.mark] = a === 'att-all'; }); render(); }
@@ -456,6 +505,8 @@
       save(); var n = Object.keys(marks).filter(function (k) { return marks[k]; }).length; toast('Attendance saved — ' + n + ' present'); A.marks = null; render();
     }
     else if (a === 'cancel-edit') { S.editId = null; render(); }
+    else if (a === 'cancel-rem') { S.editRemark = null; render(); }
+    else if (a === 'cancel-reply') { S.replyTo = null; render(); }
   });
 
   document.addEventListener('change', function (e) {
@@ -506,9 +557,30 @@
       S.prefill = { sid: f.sid.value, ev: f.ev.value, comp: r.competition, date: r.date };
       render(); toast(isPB === 'pb' ? '★ New PB for ' + fullName(sw(r.swimmerId)) + ' — ' + evName(r.event) + ' ' + fmtTime(tt) : isPB === 'first' ? 'Result saved — first ' + evName(r.event) + ' PB set' : 'Result saved' + (pbBefore != null ? ' (PB stays ' + fmtTime(pbBefore) + ')' : ''), !!isPB); return;
     }
+    if (f.id === 'cardRemForm') {
+      var ctxt = f.text.value.trim();
+      if (!ctxt) { err('crErr', 'Write a remark'); return; }
+      if (!canWriteRemark(f.dataset.sid)) return;
+      if (f.dataset.id) {
+        var mine = db.remarks.filter(function (x) { return x.id === f.dataset.id; })[0];
+        if (!ownsRemark(mine)) return;
+        mine.text = ctxt; mine.type = f.type.value; S.editRemark = null; toast('Remark updated');
+      } else {
+        db.remarks.push({ id: TP.newId('m'), swimmerId: f.dataset.sid, date: todayISO(), authorRole: S.user.role, authorId: S.user.role === 'finswimmer' ? (S.user.swimmerId || S.user.id) : S.user.id, authorName: S.user.name, type: f.type.value, text: ctxt, improve: '', replies: [] });
+        toast('Remark posted');
+      }
+      save(); render(); return;
+    }
+    if (f.id === 'replyForm') {
+      var rtxt = f.text.value.trim(); if (!rtxt || !canReplyRemark()) return;
+      var target = db.remarks.filter(function (x) { return x.id === f.dataset.rid; })[0]; if (!target) return;
+      target.replies = target.replies || [];
+      target.replies.push({ id: TP.newId('y'), date: todayISO(), authorRole: S.user.role === 'admin' ? 'coach' : S.user.role, authorId: S.user.id, authorName: S.user.name, text: rtxt });
+      S.replyTo = null; save(); render(); toast('Reply posted'); return;
+    }
     if (f.id === 'remForm') {
       if (!f.text.value.trim() && !f.improve.value.trim()) { err('mErr', 'Write a remark or something to improve'); return; }
-      db.remarks.push({ id: TP.newId('m'), swimmerId: f.sid.value, date: f.date.value || todayISO(), coachId: S.user.id, text: f.text.value.trim(), improve: f.improve.value.trim() });
+      db.remarks.push({ id: TP.newId('m'), swimmerId: f.sid.value, date: f.date.value || todayISO(), coachId: S.user.id, authorRole: 'coach', authorId: S.user.id, authorName: S.user.name, type: '', text: f.text.value.trim(), improve: f.improve.value.trim(), replies: [] });
       save(); S.prefill = { sid: f.sid.value }; render(); toast('Remark saved — parents can see it now'); return;
     }
     if (f.id === 'swForm') {
@@ -516,7 +588,7 @@
       var sem = f.email.value.trim().toLowerCase();
       if (sem && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sem)) { err('swErr', 'Enter a valid swimmer login email, or leave it blank'); return; }
       if (sem) { var taken = findUser(sem); if (taken && !(taken.role === 'finswimmer' && taken.id === S.editId)) { err('swErr', 'That email is already used by another account'); return; } }
-      var data = { first: f.first.value.trim(), last: f.last.value.trim(), dob: f.dob.value, gender: f.gender.value, group: f.group.value, venueIds: vals('venueIds'), events: vals('events'), email: sem };
+      var data = { first: f.first.value.trim(), last: f.last.value.trim(), dob: f.dob.value, gender: f.gender.value, group: f.group.value, venueIds: vals('venueIds'), coachIds: vals('coachIds'), events: vals('events'), email: sem };
       if (S.editId) { Object.assign(sw(S.editId), data); toast('Swimmer updated'); } else { data.id = TP.newId('s'); db.swimmers.push(data); toast('Swimmer added'); }
       S.editId = null; save(); render(); return;
     }
@@ -533,7 +605,13 @@
       if (!f.name.value.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ce)) { err('cErr', 'Name and a valid email are required'); return; }
       var cc = findUser(ce); if (cc && !(cc.role === 'coach' && cc.id === S.editId)) { err('cErr', 'That email is already used by another account'); return; }
       var cd = { name: f.name.value.trim(), email: ce, venueIds: vals('venueIds') };
-      if (S.editId) { Object.assign(db.coaches.filter(function (p) { return p.id === S.editId; })[0], cd); toast('Coach updated'); } else { cd.id = TP.newId('c'); db.coaches.push(cd); toast('Coach added'); }
+      var cid = S.editId, want = vals('swimmerIds');
+      if (cid) { Object.assign(db.coaches.filter(function (p) { return p.id === cid; })[0], cd); toast('Coach updated'); }
+      else { cid = cd.id = TP.newId('c'); db.coaches.push(cd); toast('Coach added'); }
+      db.swimmers.forEach(function (s) {
+        s.coachIds = coachIdsOf(s).filter(function (id) { return id !== cid; });
+        if (want.indexOf(s.id) >= 0) s.coachIds.push(cid);
+      });
       S.editId = null; save(); render(); return;
     }
     if (f.id === 'veForm') {

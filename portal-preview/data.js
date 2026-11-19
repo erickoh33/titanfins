@@ -1,8 +1,8 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v2';
-  var VERSION = 5;
+  var KEY = 'titanPortalDemo.v3';
+  var VERSION = 6;
 
   var EVENTS = [
     { id: '50SF', name: '50m Surface', kind: 'Surface' },
@@ -45,17 +45,17 @@
 
     // Fictional example swimmers. base = approx race time (s) in early August; imp = fractional improvement by mid-Nov.
     var defs = [
-      { first: 'Mia', last: 'Tan', dob: '2016-03-14', gender: 'F', group: 'Junior', venueIds: ['v1'], email: 'swimmer@example.com', rel: .9, base: { '50BF': 38.6, '100BF': 86.4, '50SF': 34.2 }, imp: .045 },
-      { first: 'Ethan', last: 'Tan', dob: '2013-07-02', gender: 'M', group: 'Development', venueIds: ['v1', 'v3'], rel: .82, base: { '50SF': 24.9, '100SF': 55.6, '200SF': 125.4, '50AP': 22.7 }, imp: .03 },
-      { first: 'Nur Aisyah', last: 'Rahman', dob: '2012-05-21', gender: 'F', group: 'Performance', venueIds: ['v1', 'v4'], rel: .94, base: { '50SF': 23.5, '100SF': 52.1, '400SF': 268.4, '100IM': 50.6 }, imp: .025 },
-      { first: 'Haziq', last: 'Iskandar', dob: '2011-12-30', gender: 'M', group: 'Performance', venueIds: ['v3', 'v1'], rel: .88, base: { '50SF': 21.7, '100SF': 48.3, '200SF': 110.6, '50AP': 19.9 }, imp: .022 },
-      { first: 'Chloe', last: 'Lim', dob: '2018-01-09', gender: 'F', group: 'Junior', venueIds: ['v4'], rel: .8, base: { '50BF': 46.2, '100BF': 102.5 }, imp: .06 },
-      { first: 'Arjun', last: 'Nair', dob: '2015-09-17', gender: 'M', group: 'Junior', venueIds: ['v2'], rel: .86, base: { '50BF': 36.1, '100BF': 80.7, '50SF': 32.1 }, imp: .05 },
-      { first: 'Sofia', last: 'Wong', dob: '2014-02-25', gender: 'F', group: 'Development', venueIds: ['v1', 'v4'], rel: .9, base: { '50SF': 27.6, '100SF': 61.2, '100BF': 75.3, '200BF': 165.4 }, imp: .035 },
-      { first: 'Daniel', last: 'Chong', dob: '2012-12-04', gender: 'M', group: 'Development', venueIds: ['v2', 'v3'], rel: .78, base: { '50SF': 25.6, '100SF': 56.9, '200SF': 126.8, '400SF': 275.2 }, imp: .028 }
+      { first: 'Mia', last: 'Tan', dob: '2016-03-14', gender: 'F', group: 'Junior', venueIds: ['v1'], coachIds: ['c1'], email: 'swimmer@example.com', rel: .9, base: { '50BF': 38.6, '100BF': 86.4, '50SF': 34.2 }, imp: .045 },
+      { first: 'Ethan', last: 'Tan', dob: '2013-07-02', gender: 'M', group: 'Development', venueIds: ['v1', 'v3'], coachIds: ['c1'], rel: .82, base: { '50SF': 24.9, '100SF': 55.6, '200SF': 125.4, '50AP': 22.7 }, imp: .03 },
+      { first: 'Nur Aisyah', last: 'Rahman', dob: '2012-05-21', gender: 'F', group: 'Performance', venueIds: ['v1', 'v4'], coachIds: ['c1'], rel: .94, base: { '50SF': 23.5, '100SF': 52.1, '400SF': 268.4, '100IM': 50.6 }, imp: .025 },
+      { first: 'Haziq', last: 'Iskandar', dob: '2011-12-30', gender: 'M', group: 'Performance', venueIds: ['v3', 'v1'], coachIds: ['c1'], rel: .88, base: { '50SF': 21.7, '100SF': 48.3, '200SF': 110.6, '50AP': 19.9 }, imp: .022 },
+      { first: 'Chloe', last: 'Lim', dob: '2018-01-09', gender: 'F', group: 'Junior', venueIds: ['v4'], coachIds: ['c2'], rel: .8, base: { '50BF': 46.2, '100BF': 102.5 }, imp: .06 },
+      { first: 'Arjun', last: 'Nair', dob: '2015-09-17', gender: 'M', group: 'Junior', venueIds: ['v2'], coachIds: ['c2'], rel: .86, base: { '50BF': 36.1, '100BF': 80.7, '50SF': 32.1 }, imp: .05 },
+      { first: 'Sofia', last: 'Wong', dob: '2014-02-25', gender: 'F', group: 'Development', venueIds: ['v1', 'v4'], coachIds: ['c2'], rel: .9, base: { '50SF': 27.6, '100SF': 61.2, '100BF': 75.3, '200BF': 165.4 }, imp: .035 },
+      { first: 'Daniel', last: 'Chong', dob: '2012-12-04', gender: 'M', group: 'Development', venueIds: ['v2', 'v3'], coachIds: ['c2'], rel: .78, base: { '50SF': 25.6, '100SF': 56.9, '200SF': 126.8, '400SF': 275.2 }, imp: .028 }
     ];
     var swimmers = defs.map(function (d, i) {
-      return { id: 's' + (i + 1), first: d.first, last: d.last, dob: d.dob, gender: d.gender, group: d.group, venueIds: d.venueIds.slice(), events: Object.keys(d.base), email: d.email || '' };
+      return { id: 's' + (i + 1), first: d.first, last: d.last, dob: d.dob, gender: d.gender, group: d.group, venueIds: d.venueIds.slice(), coachIds: (d.coachIds || []).slice(), events: Object.keys(d.base), email: d.email || '' };
     });
     var parents = [
       { id: 'p1', name: 'Jason Tan (example parent)', email: 'parent@example.com', phone: '012-000 0001', swimmerIds: ['s1', 's2'] },
@@ -140,9 +140,14 @@
       var n = i % 3 === 0 ? 3 : 2;
       for (var k = 0; k < n; k++) {
         var t = pool[k % pool.length];
-        remarks.push({ id: id('m'), swimmerId: s.id, date: rDates[3 - n + k], coachId: s.venueIds[0] === 'v2' ? 'c2' : 'c1', text: t[0], improve: t[1] });
+        var cid = s.venueIds[0] === 'v2' ? 'c2' : 'c1';
+        var cname = (coaches.filter(function (c) { return c.id === cid; })[0] || {}).name || 'Coach';
+        remarks.push({ id: id('m'), swimmerId: s.id, date: rDates[3 - n + k], coachId: cid, authorRole: 'coach', authorId: cid, authorName: cname, type: '', text: t[0], improve: t[1], replies: [] });
       }
     });
+
+    remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-12', authorRole: 'parent', authorId: 'p1', authorName: 'Jason Tan (example parent)', type: 'Feedback', text: 'Mia has been practising her starts at home in the mirror. Thank you for the extra work on Saturday.', improve: '', replies: [{ id: id('y'), date: '2026-11-13', authorRole: 'coach', authorId: 'c1', authorName: 'Coach Kilian', text: 'Glad it stuck — we will keep a few start reps in Saturday’s set.' }] });
+    remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-16', authorRole: 'finswimmer', authorId: 's1', authorName: 'Mia Tan', type: 'Goal', text: 'I want my 50m bifin under 37 seconds before the next meet.', improve: '', replies: [] });
 
     return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, nextId: uid + 1 };
   }
