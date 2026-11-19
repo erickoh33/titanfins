@@ -1,8 +1,8 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v6';
-  var VERSION = 10;
+  var KEY = 'titanPortalDemo.v9';
+  var VERSION = 13;
 
   var EVENTS = [
     { id: '50BF', name: '50m Bifins', kind: 'Bifins' },
@@ -106,9 +106,9 @@
 
     // Competitions (generic example names)
     var comps = [
-      { name: 'Example State Meet 2026', date: new Date(2026, 7, 23) },
-      { name: 'Example Junior Open 2026', date: new Date(2026, 8, 27) },
-      { name: 'Example Club Invitational 2026', date: new Date(2026, 10, 8) }
+      { name: 'Example State Meet 2026', date: new Date(2026, 7, 23), country: 'Malaysia', representing: 'KL' },
+      { name: 'Example Junior Open 2026', date: new Date(2026, 8, 27), country: 'Malaysia', representing: 'Malaysia' },
+      { name: 'Example Club Invitational 2026', date: new Date(2026, 10, 8), country: 'Malaysia', representing: '' }
     ];
     var results = [];
     comps.forEach(function (c, ci) {
@@ -119,7 +119,7 @@
         pick.forEach(function (ev) {
           var t = expected(defs[i], ev, c.date) * (1 + (R() - .45) * 0.018);
           var place = 1 + Math.floor(Math.pow(R(), 1.3) * 8);
-          results.push({ id: id('r'), swimmerId: s.id, competition: c.name, date: iso(c.date), event: ev, time: r2(t), place: place, medal: place === 1 ? 'gold' : place === 2 ? 'silver' : place === 3 ? 'bronze' : '' });
+          results.push({ id: id('r'), swimmerId: s.id, competition: c.name, date: iso(c.date), event: ev, time: r2(t), place: place, medal: place === 1 ? 'gold' : place === 2 ? 'silver' : place === 3 ? 'bronze' : '', record: '', representing: c.representing || '', country: c.country || 'Malaysia' });
         });
       });
     });
@@ -155,6 +155,12 @@
 
     remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-12', authorRole: 'parent', authorId: 'p1', authorName: 'Jason Tan (example parent)', type: 'Feedback', text: 'Mia has been practising her starts at home in the mirror. Thank you for the extra work on Saturday.', improve: '', replies: [{ id: id('y'), date: '2026-11-13', authorRole: 'coach', authorId: 'c1', authorName: 'Coach Kilian', text: 'Glad it stuck — we will keep a few start reps in Saturday’s set.' }] });
     remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-16', authorRole: 'finswimmer', authorId: 's1', authorName: 'Mia Tan', type: 'Goal', text: 'I want my 50m bifin under 37 seconds before the next meet.', improve: '', replies: [] });
+    var coachThread = remarks.filter(function (r) { return r.swimmerId === 's1' && r.authorRole === 'coach' && r.date === '2026-11-14'; })[0];
+    if (coachThread) coachThread.replies = [
+      { id: id('y'), date: '2026-11-15', authorRole: 'parent', authorId: 'p1', authorName: 'Jason Tan (example parent)', text: 'We saw the same thing on Saturday. She was much calmer off the block.' },
+      { id: id('y'), date: '2026-11-15', authorRole: 'finswimmer', authorId: 's1', authorName: 'Mia Tan', text: 'I will count the kicks underwater like you said.' },
+      { id: id('y'), date: '2026-11-16', authorRole: 'coach', authorId: 'c1', authorName: 'Coach Kilian', text: 'Good. We will check the start again this Saturday.' }
+    ];
 
     function exampleSlip(label) {
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="280"><rect width="100%" height="100%" fill="#f4f1ea"/><text x="28" y="54" font-family="sans-serif" font-size="22" fill="#111">EXAMPLE PAYMENT SLIP</text><text x="28" y="98" font-family="sans-serif" font-size="16" fill="#333">' + label + '</text><text x="28" y="140" font-family="sans-serif" font-size="14" fill="#666">Not a real bank receipt</text></svg>';
@@ -186,8 +192,8 @@
     ];
 
     var competitions = [
-      { id: 'k1', name: 'Example Junior Invitational 2026', start: '2026-12-06', end: '2026-12-07', venue: 'Example Aquatic Centre, Kuala Lumpur', deadline: '2026-11-28', fee: 45, notes: 'Fictional example meet — not a real competition.', docs: [{ name: 'Example invite (link)', href: 'https://example.com/example-junior-invite', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50SF', '100SF', '50BF'] }, { swimmerId: 's2', events: ['100BF', '200BF', '50AP'] }, { swimmerId: 's3', events: ['50SF', '100SF'] }] },
-      { id: 'k2', name: 'Example Club Time Trial 2027', start: '2027-01-17', end: '2027-01-17', venue: 'Section 51A, Petaling Jaya', deadline: '2027-01-08', fee: 0, notes: 'Example in-house time trial. Not a real meet.', docs: [{ name: 'Example schedule (link)', href: 'https://example.com/example-time-trial', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50SF', '50BF'] }, { swimmerId: 's5', events: ['50BF', '100BF'] }, { swimmerId: 's6', events: ['50BF', '100BF'] }] }
+      { id: 'k1', name: 'Example Junior Invitational 2026', start: '2026-12-06', end: '2026-12-07', venue: 'Example Aquatic Centre, Kuala Lumpur', deadline: '2026-11-28', fee: 45, notes: 'Fictional example meet — not a real competition.', country: 'Malaysia', representing: 'KL', docs: [{ name: 'Example invite (link)', href: 'https://example.com/example-junior-invite', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50SF', '100SF', '50BF'] }, { swimmerId: 's2', events: ['100BF', '200BF', '50AP'] }, { swimmerId: 's3', events: ['50SF', '100SF'] }] },
+      { id: 'k2', name: 'Example Club Time Trial 2027', start: '2027-01-17', end: '2027-01-17', venue: 'Section 51A, Petaling Jaya', deadline: '2027-01-08', fee: 0, notes: 'Example in-house time trial. Not a real meet.', country: 'Malaysia', representing: '', docs: [{ name: 'Example schedule (link)', href: 'https://example.com/example-time-trial', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50SF', '50BF'] }, { swimmerId: 's5', events: ['50BF', '100BF'] }, { swimmerId: 's6', events: ['50BF', '100BF'] }] }
     ];
 
     var targets = [];
@@ -205,7 +211,8 @@
     function qtBase(ev) { return ({ '50SF': 32, '100SF': 72, '200SF': 160, '400SF': 340, '800SF': 720, '1500SF': 1400, '50BF': 36, '100BF': 82, '200BF': 180, '400BF': 390, '800BF': 820, '1500BF': 1600, '100IM': 70, '200IM': 155, '50AP': 28 })[ev] || 40; }
     var qtTables = [
       { id: 'q1', name: 'Example State QT 2026', note: 'Fictional example standards — not real qualifying times.', rows: [] },
-      { id: 'q2', name: 'Example National QT 2026', note: 'Fictional example standards, stricter than the state example. Not real.', rows: [] }
+      { id: 'q2', name: 'Example National QT 2026', note: 'Fictional example standards, stricter than the state example. Not real.', rows: [] },
+      { id: 'q3', name: 'Example CMAS QT 2026', note: 'Fictional example CMAS cut. Not a real CMAS qualifying time.', rows: [] }
     ];
     EVENTS.forEach(function (e) {
       ['F', 'M'].forEach(function (g) {
@@ -213,6 +220,7 @@
           var state = qtBase(e.id) * (g === 'F' ? 1.05 : 1) * (ag[0] === 8 ? 1.1 : ag[0] === 12 ? 1 : 0.93);
           qtTables[0].rows.push({ event: e.id, gender: g, ageMin: ag[0], ageMax: ag[1], time: r2(state) });
           qtTables[1].rows.push({ event: e.id, gender: g, ageMin: ag[0], ageMax: ag[1], time: r2(state * 0.9) });
+          qtTables[2].rows.push({ event: e.id, gender: g, ageMin: ag[0], ageMax: ag[1], time: r2(state * 0.78) });
         });
       });
     });
@@ -224,7 +232,8 @@
         var best = null;
         results.forEach(function (r) { if (r.swimmerId === sid && r.event === ev && (best == null || r.time < best)) best = r.time; });
         if (best == null) return;
-        pbs.push({ id: id('pb'), swimmerId: sid, event: ev, time: r2(best * (j === 0 ? 1.012 : 0.99)), date: '2026-10-18', note: 'Example PB entered by the coach.', editedBy: 'Coach Kilian' });
+        var cur = r2(best * (j === 0 ? 1.012 : 0.99));
+        pbs.push({ id: id('pb'), swimmerId: sid, event: ev, time: cur, date: '2026-10-18', note: 'Example PB entered by the coach.', editedBy: 'Coach Kilian', history: [{ time: cur, date: '2026-10-18', note: 'Example PB entered by the coach.' }] });
       });
     });
     results.forEach(function (r) {
@@ -232,15 +241,78 @@
       if (!newer && (r.swimmerId === 's1' || r.swimmerId === 's2')) r.note = 'Example — imported from results PDF';
     });
 
-    var customBadges = [{ id: 'cb1', swimmerId: 's1', name: 'Example squad spirit', note: 'Example award for helping a new swimmer settle in.', date: '2026-11-01', by: 'Coach Kilian' }];
+    function setRate(sid, ym, rate) {
+      var list = attendance.filter(function (a) { return Object.prototype.hasOwnProperty.call(a.marks, sid) && a.date.slice(0, 7) === ym; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      var keep = Math.round(list.length * rate);
+      list.forEach(function (a, i) { a.marks[sid] = i < keep; });
+    }
+    ['2026-08', '2026-09', '2026-10'].forEach(function (m) { setRate('s1', m, 1); });
+    setRate('s1', '2026-11', 0.8);
+    setRate('s2', '2026-08', 0.7);
+    setRate('s2', '2026-09', 1);
+    setRate('s2', '2026-10', 0.92);
+    setRate('s2', '2026-11', 0.6);
+    var extraDay = new Date(2026, 0, 4);
+    var extraN = 0;
+    while (extraN < 56 && extraDay < new Date(2026, 7, 1)) {
+      attendance.push({ id: id('a'), date: iso(extraDay), venueId: 'v1', slot: '09:00–10:00', marks: { s1: true }, coachId: 'c1' });
+      extraN++;
+      extraDay.setDate(extraDay.getDate() + 4);
+    }
+    results.push({ id: id('r'), swimmerId: 's1', competition: 'Example Singapore Invitational 2026', date: '2026-10-12', event: '50SF', time: 34.9, place: 4, medal: '', record: '', representing: 'Malaysia', country: 'Singapore', note: 'Example — imported from results PDF' });
+    results.push({ id: id('r'), swimmerId: 's1', competition: 'Example Junior Open 2026', date: '2026-09-27', event: '800SF', time: 748.2, place: 5, medal: '', record: '', representing: 'Malaysia', country: 'Malaysia', note: 'Example distance swim' });
+    function clearMedals(sid) { results.forEach(function (r) { if (r.swimmerId === sid) { r.medal = ''; r.record = ''; } }); }
+    clearMedals('s1'); clearMedals('s2');
+    var miaRes = results.filter(function (r) { return r.swimmerId === 's1'; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var early = miaRes.filter(function (r) { return r.date < '2026-09-01'; })[0];
+    var mid = miaRes.filter(function (r) { return r.date >= '2026-09-01' && r.date < '2026-11-01'; })[0];
+    var late = miaRes.filter(function (r) { return r.date >= '2026-11-01'; })[0];
+    if (early) early.medal = 'bronze';
+    if (mid) mid.medal = 'silver';
+    if (late) { late.medal = 'gold'; late.record = 'state'; }
+    var eth = results.filter(function (r) { return r.swimmerId === 's2'; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (eth[0]) eth[0].medal = 'silver';
+    if (eth[1]) eth[1].medal = 'bronze';
+    var ethAp = eth.filter(function (r) { return r.event === '50AP'; }).pop();
+    if (ethAp) ethAp.record = 'national';
+    function setPb(sid, ev, prev, prevDate, cur, curDate) {
+      var p = pbs.filter(function (x) { return x.swimmerId === sid && x.event === ev; })[0];
+      if (!p) { p = { id: id('pb'), swimmerId: sid, event: ev, editedBy: 'Coach Kilian' }; pbs.push(p); }
+      p.time = cur; p.date = curDate; p.note = 'Example PB entered by the coach.'; p.editedBy = 'Coach Kilian';
+      p.history = [{ time: prev, date: prevDate, note: 'Earlier PB' }, { time: cur, date: curDate, note: 'Example PB entered by the coach.' }];
+    }
+    setPb('s1', '50SF', 36.8, '2026-09-12', 35.2, '2026-11-08');
+    setPb('s2', '100BF', 80.4, '2026-10-02', 79.9, '2026-11-04');
+    setPb('s2', '50AP', 24.1, '2026-09-20', 23.4, '2026-10-18');
+    var miaTarget = targets.filter(function (t) { return t.swimmerId === 's1' && t.event === '50SF'; })[0];
+    if (miaTarget) miaTarget.time = 36;
+    var ethTarget = targets.filter(function (t) { return t.swimmerId === 's2' && t.event === '100BF'; })[0];
+    if (ethTarget) ethTarget.time = 80.5;
 
-    var media = [
-      { id: 'md1', swimmerIds: ['s1', 's2'], date: '2026-11-08', caption: 'Example: kick set at Section 51A', comment: 'Mia — keep the knees soft on the bifin kick.', kind: 'image', src: '../assets/web/gal1.webp', name: 'gal1.webp' },
-      { id: 'md2', swimmerIds: ['s1'], date: '2026-10-18', caption: 'Example: training photo', comment: 'Hold the streamline a beat longer off each wall.', kind: 'image', src: '../assets/web/prog1.webp', name: 'prog1.webp' },
-      { id: 'md3', swimmerIds: ['s1'], date: '2026-09-20', caption: 'Example technique link', comment: 'Watch the turn, then try it next session.', kind: 'link', src: 'https://example.com/example-technique-clip', name: 'Example clip' }
+    function exThumb(label) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#141414"/><rect width="14" height="100%" fill="#CE0037"/><text x="40" y="168" fill="#ffffff" font-family="sans-serif" font-size="30">' + label + '</text><text x="40" y="210" fill="#CE0037" font-family="sans-serif" font-size="16">EXAMPLE — not a real photo</text></svg>';
+      return 'data:image/svg+xml,' + encodeURIComponent(svg);
+    }
+    var exercises = [
+      { id: 'ex1', title: 'Streamline hold', category: 'Dryland', level: 'Beginner', cues: 'Lock the hands, ribs in, squeeze the glutes. Example clip — not a real video.', duration: '30 seconds', reps: '4', kind: 'link', src: 'https://www.youtube.com/watch?v=example-streamline-hold', name: 'Example YouTube link', thumb: exThumb('Streamline hold') },
+      { id: 'ex2', title: 'Hip-driven bifin kick', category: 'Kick drills', level: 'Intermediate', cues: 'Kick from the hips. Knees stay soft. Example clip — not a real video.', duration: '25 metres', reps: '8', kind: 'link', src: 'https://www.youtube.com/watch?v=example-bifin-kick', name: 'Example YouTube link', thumb: exThumb('Bifin kick') },
+      { id: 'ex3', title: 'Block start sequence', category: 'Starts & turns', level: 'Pre-Comp', cues: 'Track the back foot, drive the hips forward, then lock the streamline. Example clip — not a real video.', duration: '', reps: '6', kind: 'link', src: 'https://www.youtube.com/watch?v=example-block-start', name: 'Example YouTube link', thumb: exThumb('Block start') },
+      { id: 'ex4', title: 'Breath-hold comfort', category: 'Apnea', level: 'Beginner', cues: 'Sit tall, relax the shoulders, and stop if it feels sharp. Example photo only.', duration: '20 seconds', reps: '4', kind: 'image', src: exThumb('Breath-hold'), name: 'Example photo', thumb: exThumb('Breath-hold') },
+      { id: 'ex5', title: 'Shoulder openers', category: 'Stretching', level: 'Beginner', cues: 'Slow circles, then a gentle doorway stretch. Example Drive link — not a real file.', duration: '8 minutes', reps: '', kind: 'link', src: 'https://drive.google.com/file/d/example-shoulder-openers/view', name: 'Example Drive link', thumb: exThumb('Shoulder openers') },
+      { id: 'ex6', title: 'Monofin body wave', category: 'Technique', level: 'Intermediate', cues: 'The wave starts at the chest, not the knees. Example clip — not a real video.', duration: '10 minutes', reps: '', kind: 'link', src: 'https://www.youtube.com/watch?v=example-body-wave', name: 'Example YouTube link', thumb: exThumb('Body wave') },
+      { id: 'ex7', title: 'Turn tuck', category: 'Starts & turns', level: 'Intermediate', cues: 'Chin to chest, heels to the seat, then plant the feet. Example photo only.', duration: '', reps: '8', kind: 'image', src: exThumb('Turn tuck'), name: 'Example photo', thumb: exThumb('Turn tuck') },
+      { id: 'ex8', title: 'Core hollow hold', category: 'Dryland', level: 'Pre-Comp', cues: 'Lower back stays on the floor. Example clip — not a real video.', duration: '20 seconds', reps: '5', kind: 'link', src: 'https://www.youtube.com/watch?v=example-hollow-hold', name: 'Example YouTube link', thumb: exThumb('Hollow hold') }
     ];
 
-    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, plans: plans, planRequests: planRequests, allowPlanRequests: true, rewards: rewards, fees: fees, slips: slips, competitions: competitions, targets: targets, pbs: pbs, qtTables: qtTables, customBadges: customBadges, media: media, nextId: uid + 1 };
+    var media = [
+      { id: 'md1', swimmerIds: ['s1', 's2'], date: '2026-11-08', event: 'Training', caption: 'Example: kick set at Section 51A', comment: 'Mia — keep the knees soft on the bifin kick.', kind: 'image', src: '../assets/web/gal1.webp', name: 'gal1.webp' },
+      { id: 'md2', swimmerIds: ['s1'], date: '2026-10-18', event: '50m Surface', caption: 'Example: Mia streamline off the wall', comment: 'Hold the streamline a beat longer off each wall.', kind: 'image', src: '../assets/web/prog1.webp', name: 'prog1.webp' },
+      { id: 'md3', swimmerIds: ['s1'], date: '2026-09-27', event: 'Example Junior Open 2026', caption: 'Example: Mia at the Junior Open', comment: 'Example meet clip — not a real video.', kind: 'link', src: 'https://www.youtube.com/watch?v=example-mia-junior-open', name: 'Example YouTube link' },
+      { id: 'md4', swimmerIds: ['s2'], date: '2026-11-08', event: 'Example Club Invitational 2026', caption: 'Example: Ethan 100m bifins', comment: 'Example race photo.', kind: 'image', src: '../assets/web/gal2.webp', name: 'gal2.webp' },
+      { id: 'md5', swimmerIds: ['s2'], date: '2026-10-12', event: '50m Apnea', caption: 'Example: Ethan apnea start', comment: 'Example training clip — not a real video.', kind: 'link', src: 'https://www.youtube.com/watch?v=example-ethan-apnea', name: 'Example YouTube link' }
+    ];
+
+    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, plans: plans, planRequests: planRequests, allowPlanRequests: true, rewards: rewards, fees: fees, slips: slips, competitions: competitions, targets: targets, pbs: pbs, qtTables: qtTables, exercises: exercises, media: media, nextId: uid + 1 };
   }
 
   var db = null;
