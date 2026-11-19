@@ -138,6 +138,14 @@ table.t{width:100%;border-collapse:collapse;font-size:14px}
 .cmp-track i{display:block;height:100%;border-radius:99px}
 .cmp-track i.goal{background:#0b6e7f}
 .cmp-track i.actual{background:var(--crimson)}
+.cmp-track i.target{background:#CE0037}
+.cmp-track i.pb{background:#000}
+.cmp-track i.latest{background:#8d8d8d}
+.legend i.bar-t{background:#CE0037;border-radius:2px}
+.legend i.bar-p{background:#000}
+.legend i.bar-l{background:#8d8d8d}
+.evgroup{margin:8px 0 12px}
+.evgroup>b{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
 @media(max-width:700px){
   .goals thead{display:none}
   .goals tr{display:block;padding:10px 0;border-bottom:1px solid var(--line)}
