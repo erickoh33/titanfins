@@ -130,7 +130,7 @@
 
   function tabsFor(role) {
     if (role === 'parent' || role === 'finswimmer') return [['report', 'Report card'], ['fees', 'Fees'], ['comps', 'Competitions'], ['gallery', 'Gallery']];
-    var t = [['swimmers', 'Swimmers'], ['attendance', 'Attendance'], ['time', 'Log training time'], ['result', 'Add result'], ['remark', 'Write remark'], ['comps', 'Competitions'], ['media', 'Photos & videos'], ['targets', 'Target times']];
+    var t = [['swimmers', 'Swimmers'], ['attendance', 'Attendance'], ['time', 'Log training time'], ['result', 'Add result'], ['remark', 'Write remark'], ['comps', 'Competitions'], ['media', 'Photos & videos']];
     if (role === 'admin') t.push(['fees', 'Fees'], ['qt', 'Qualifying times'], ['manage', 'Manage']);
     return t;
   }
@@ -153,7 +153,8 @@
     var all = tr.concat(cp);
     if (!all.length) return '';
     var W = 520, H = 210, L = 52, Rr = 12, T = 14, B = 28;
-    var xs = all.map(function (p) { return parseISO(p.date).getTime(); }), ys = all.map(function (p) { return p.time; });
+    var goal = targetOf(sid, ev), mark = bestMark(sid, ev);
+    var xs = all.map(function (p) { return parseISO(p.date).getTime(); }), ys = all.map(function (p) { return p.time; }); if (goal != null) ys.push(goal);
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs); if (x1 - x0 < 864e5 * 14) { x0 -= 864e5 * 7; x1 += 864e5 * 7; }
     var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), pad = Math.max((y1 - y0) * 0.12, y0 * 0.01); y0 -= pad; y1 += pad;
     function X(t) { return L + (t - x0) / (x1 - x0) * (W - L - Rr); }
@@ -162,11 +163,11 @@
     for (var i = 0; i <= 3; i++) { var v = y0 + (y1 - y0) * i / 3, y = Y(v); g += '<line x1="' + L + '" x2="' + (W - Rr) + '" y1="' + y + '" y2="' + y + '" stroke="#ececec"/><text x="' + (L - 6) + '" y="' + (y + 4) + '" text-anchor="end" font-size="11" fill="#888">' + fmtTime(v) + '</text>'; }
     var d0 = new Date(x0); d0 = new Date(d0.getFullYear(), d0.getMonth() + 1, 1);
     for (; d0.getTime() <= x1; d0 = new Date(d0.getFullYear(), d0.getMonth() + 1, 1)) { var x = X(d0.getTime()); g += '<line x1="' + x + '" x2="' + x + '" y1="' + T + '" y2="' + (H - B) + '" stroke="#f3f3f3"/><text x="' + x + '" y="' + (H - 9) + '" text-anchor="middle" font-size="11" fill="#888">' + MONTHS[d0.getMonth()] + '</text>'; }
-    var pb = cp.length ? Math.min.apply(null, cp.map(function (r) { return r.time; })) : null;
-    if (pb != null) g += '<line x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(pb) + '" y2="' + Y(pb) + '" stroke="#CE0037" stroke-dasharray="5 4" stroke-width="1.5"/>';
+    if (goal != null) { var gy = Y(goal); g += '<line x1="' + L + '" x2="' + (W - Rr) + '" y1="' + gy + '" y2="' + gy + '" stroke="#0b6e7f" stroke-dasharray="6 4" stroke-width="1.6"/><text x="' + (W - Rr) + '" y="' + (gy - 4) + '" text-anchor="end" font-size="10" fill="#0b6e7f">Goal ' + fmtTime(goal) + '</text>'; }
     if (tr.length > 1) g += '<polyline fill="none" stroke="#000" stroke-width="2.2" stroke-linejoin="round" points="' + tr.map(function (p) { return X(parseISO(p.date).getTime()) + ',' + Y(p.time); }).join(' ') + '"/>';
     tr.forEach(function (p) { g += '<circle cx="' + X(parseISO(p.date).getTime()) + '" cy="' + Y(p.time) + '" r="3.6" fill="#000"><title>Training ' + fmtShort(p.date) + ': ' + fmtTime(p.time) + '</title></circle>'; });
     cp.forEach(function (p) { var cx = X(parseISO(p.date).getTime()), cy = Y(p.time); g += '<rect x="' + (cx - 5) + '" y="' + (cy - 5) + '" width="10" height="10" fill="#CE0037" stroke="#fff" stroke-width="1.5" transform="rotate(45 ' + cx + ' ' + cy + ')"><title>' + esc(p.competition) + ' ' + fmtShort(p.date) + ': ' + fmtTime(p.time) + '</title></rect>'; });
+    if (mark) { var mx = X(parseISO(mark.date).getTime()), my = Y(mark.time); g += '<circle cx="' + mx + '" cy="' + my + '" r="7.5" fill="none" stroke="#0b6e7f" stroke-width="2.4"><title>Actual ' + fmtTime(mark.time) + '</title></circle>'; }
     var first = tr[0], last = tr[tr.length - 1], delta = '';
     if (tr.length > 1) { var dd = last.time - first.time; delta = '<span class="small ' + (dd < 0 ? '' : 'muted') + '" style="color:' + (dd < 0 ? 'var(--ok)' : '') + ';font-weight:800">' + (dd < 0 ? '▲ ' + fmtTime(-dd) + 's faster' : '▼ ' + fmtTime(dd) + 's slower') + ' in training</span>'; }
     return '<div class="chart"><div class="ct"><b>' + evName(ev) + '</b>' + delta + '</div><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + evName(ev) + ' progress chart">' + g + '</svg></div>';
@@ -253,10 +254,6 @@
           '</div>';
       }).join('') : '<p class="empty">No remarks' + (filter === 'all' ? ' yet' : ' in this filter') + '.</p>') + '</div></div>';
 
-    // Progress charts
-    var evs = pbs.map(function (r) { return r.event; });
-    h += '<div class="card" style="margin-top:14px"><h3 class="card-t">Training progress</h3><div class="legend"><span><i></i>Training time</span><span><i class="c"></i>Competition</span><span><i class="pb"></i>Current PB</span><span>Higher on the chart = faster</span></div><div class="charts">' + evs.map(function (e) { return chart(sid, e); }).join('') + '</div></div>';
-
     // Competition results + attendance
     var res = resultsOf(sid), comps = {};
     res.forEach(function (r) { var k = r.date + '|' + r.competition; (comps[k] = comps[k] || []).push(r); });
@@ -323,7 +320,8 @@
       '<div class="toolbar"><input id="fq" type="search" placeholder="Search by name…" value="' + esc(f.q) + '" aria-label="Search swimmers"><select id="fv" aria-label="Filter by venue">' + venueOptions(f.venue, true) + '</select><select id="fg" aria-label="Filter by group"><option value="">All groups</option>' + GROUPS.map(function (g) { return '<option' + (g === f.group ? ' selected' : '') + '>' + g + '</option>'; }).join('') + '</select></div>' +
       '<div class="slist">' + (list.length ? list.map(function (s) {
         var a = attOf(s.id);
-        return '<button class="sc" data-open="' + s.id + '"><span class="av">' + initials(s) + '</span><span><span class="nm">' + esc(fullName(s)) + '</span><br><span class="sub">' + age(s.dob) + ' yrs · ' + esc(s.group) + ' · ' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + '</span></span><span class="att">' + a.pct + '%<small>ATTEND.</small></span></button>';
+        var goals = (db.targets || []).filter(function (t) { return t.swimmerId === s.id; });
+        return '<button class="sc" data-open="' + s.id + '"><span class="av">' + initials(s) + '</span><span><span class="nm">' + esc(fullName(s)) + '</span><br><span class="sub">' + age(s.dob) + ' yrs · ' + esc(s.group) + ' · ' + s.venueIds.map(function (v) { return esc(venue(v) ? venue(v).name : ''); }).join(', ') + (goals.length ? '<br>Goals: ' + goals.map(function (t) { return evName(t.event) + ' ' + fmtTime(t.time); }).join(' · ') : '') + '</span></span><span class="att">' + a.pct + '%<small>ATTEND.</small></span></button>';
       }).join('') : '<p class="empty">' + (mine ? 'No swimmers are assigned to you yet. Switch to All swimmers, or ask an admin to assign some.' : 'No swimmers match.') + '</p>') + '</div>';
   }
 
@@ -520,6 +518,19 @@
   }
   function daysUntil(iso) { var d = Math.round((parseISO(iso) - parseISO(todayISO())) / 86400000); if (d > 1) return d + ' days to go'; if (d === 1) return 'Tomorrow'; if (d === 0) return 'Today'; return Math.abs(d) + ' days ago'; }
   function targetOf(sid, ev) { var t = (db.targets || []).filter(function (x) { return x.swimmerId === sid && x.event === ev; })[0]; return t ? t.time : null; }
+  function targetRow(sid, ev) { return (db.targets || []).filter(function (x) { return x.swimmerId === sid && x.event === ev; })[0]; }
+  function bestMark(sid, ev) {
+    var best = null;
+    timesOf(sid).forEach(function (t) { if (t.event === ev && (best == null || t.time < best.time)) best = { time: t.time, date: t.date, source: 'training' }; });
+    resultsOf(sid).forEach(function (r) { if (r.event === ev && (best == null || r.time < best.time)) best = { time: r.time, date: r.date, source: 'competition', meet: r.competition }; });
+    return best;
+  }
+  function canEditGoal(sid) {
+    if (!S.user) return false;
+    if (S.user.role === 'finswimmer') return (S.user.swimmerId || S.user.id) === sid;
+    if (S.user.role === 'parent') return myChildren().some(function (k) { return k.id === sid; });
+    return false;
+  }
   function qtsFor(s, ev, pbTime) {
     var ageN = age(s.dob), out = [];
     (db.qtTables || []).forEach(function (table) {
@@ -650,22 +661,48 @@
       '</div><div class="actions"><button class="btn" type="submit">' + (S.editId ? 'Save competition' : 'Add competition') + '</button>' + (S.editId ? '<button class="btn ghost" type="button" data-act="cancel-edit">Cancel</button>' : '') + '</div></form></div>';
     return '<div class="h-row"><h2 class="sec">Upcoming <em>competitions</em></h2></div>' + h;
   }
-  function targetsBlock(sid) {
-    var s = sw(sid), rows = pbTable(sid);
+  function goalEvents(sid) {
+    var s = sw(sid), set = {};
+    ((s && s.events) || []).forEach(function (e) { set[e] = 1; });
+    (db.targets || []).forEach(function (t) { if (t.swimmerId === sid) set[t.event] = 1; });
+    pbTable(sid).forEach(function (r) { set[r.event] = 1; });
+    return db.events.map(function (e) { return e.id; }).filter(function (id) { return set[id]; });
+  }
+  function goalCompare(sid, evs) {
+    var rows = evs.map(function (ev) { return { ev: ev, g: targetOf(sid, ev), a: bestMark(sid, ev) }; }).filter(function (r) { return r.g != null || r.a; });
     if (!rows.length) return '';
-    return '<div class="card" style="margin-top:14px"><h3 class="card-t">Targets & qualifying times</h3><p class="hint">Qualifying times below are fictional example standards, not real MAS or state cuts.</p>' + rows.map(function (r) {
-      var pb = r.pb ? r.pb.time : null, tg = targetOf(sid, r.event), gap = pb != null && tg != null ? Math.round((pb - tg) * 100) / 100 : null, hit = gap != null && gap <= 0;
-      var pct = gap == null ? 0 : hit ? 100 : Math.max(8, Math.min(100, Math.round(tg / pb * 100)));
-      var qts = pb == null ? [] : qtsFor(s, r.event, pb);
-      return '<div class="trow"><div class="trow-h"><b>' + evName(r.event) + '</b><span>PB <b>' + fmtTime(pb) + '</b> · target <b>' + fmtTime(tg) + '</b></span></div><div class="gap' + (hit ? ' hit' : '') + '"><span>' + (gap == null ? 'No target set' : hit ? 'Target smashed' : gap.toFixed(2) + 's to target') + '</span><div class="bar"><i style="width:' + pct + '%"></i></div></div>' + qts.map(function (q) { return '<div class="qt' + (q.hit ? ' hit' : '') + '"><b>' + esc(q.name) + '</b> ' + fmtTime(q.time) + ' · ' + (q.hit ? 'Achieved' : (q.off > 0 ? q.off.toFixed(2) + 's off' : '')) + '</div>'; }).join('') + '</div>';
-    }).join('') + '</div>';
+    var slow = 0;
+    rows.forEach(function (r) { if (r.g) slow = Math.max(slow, r.g); if (r.a) slow = Math.max(slow, r.a.time); });
+    function bar(time, cls, label) {
+      if (time == null) return '<div class="cmp-line"><span>' + label + '</span><div class="cmp-track"></div><b>—</b></div>';
+      var w = Math.max(18, Math.min(100, Math.round(slow / time * 55)));
+      return '<div class="cmp-line"><span>' + label + '</span><div class="cmp-track"><i class="' + cls + '" style="width:' + w + '%"></i></div><b>' + fmtTime(time) + '</b></div>';
+    }
+    return '<div class="cmp"><p class="hint">Longer bar = faster time.</p>' + rows.map(function (r) { return '<div class="cmp-ev"><b>' + evName(r.ev) + '</b>' + bar(r.g, 'goal', 'Goal') + bar(r.a && r.a.time, 'actual', 'Actual') + '</div>'; }).join('') + '</div>';
+  }
+  function targetsBlock(sid) {
+    var s = sw(sid), evs = goalEvents(sid), edit = canEditGoal(sid);
+    var rows = evs.map(function (ev) {
+      var tg = targetRow(sid, ev), actual = bestMark(sid, ev), goal = tg ? tg.time : null;
+      var gap = actual && goal != null ? Math.round((actual.time - goal) * 100) / 100 : null;
+      var status = goal == null ? 'No goal' : !actual ? 'No time yet' : gap <= 0 ? 'Goal met' : gap.toFixed(2) + 's to goal';
+      var goalCell = edit ? '<form data-kind="save-goal" data-sid="' + sid + '" data-ev="' + ev + '" class="goal-edit"><input name="time" inputmode="decimal" placeholder="34.52 or 1:05.30" aria-label="Goal time for ' + esc(evName(ev)) + '" value="' + (goal != null ? fmtTime(goal) : '') + '"><button class="btn sm" type="submit">Save</button></form>' + (tg && tg.editedBy ? '<div class="small muted">last edited by ' + esc(tg.editedBy) + ', ' + fmtShort(tg.editedOn) + '</div>' : '') : (goal != null ? '<b>' + fmtTime(goal) + '</b>' + (tg && tg.editedBy ? '<div class="small muted">last edited by ' + esc(tg.editedBy) + ', ' + fmtShort(tg.editedOn) + '</div>' : '') : '<span class="muted">—</span>');
+      return '<tr><td><b>' + evName(ev) + '</b></td><td>' + goalCell + '</td><td>' + (actual ? '<b>' + fmtTime(actual.time) + '</b><div class="src">' + esc(actual.source === 'training' ? 'Training, ' + fmtShort(actual.date) : 'Competition: ' + actual.meet) + '</div>' : '<span class="muted">—</span>') + '</td><td>' + (gap == null ? '—' : gap <= 0 ? fmtTime(-gap) + 's under' : gap.toFixed(2) + 's') + '</td><td><span class="status ' + (gap != null && gap <= 0 ? 'st-paid' : gap != null ? 'st-due' : '') + '">' + status + '</span></td></tr>';
+    }).join('');
+    var goals = '<div class="card" style="margin-top:14px"><h3 class="card-t">Goals</h3><p class="hint">' + (edit ? 'Set a goal time for each event. Clear the box and save to remove it. Faster is better.' : 'Goals are set by the parent or finswimmer. This view is read-only.') + '</p><div class="goals"><table class="t"><thead><tr><th>Event</th><th>Goal time</th><th>Actual time</th><th>Gap</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' + goalCompare(sid, evs) + '<div class="legend" style="margin-top:12px"><span><i></i>Training</span><span><i class="c"></i>Competition</span><span><i class="goal"></i>Goal</span><span><i class="act"></i>Actual PB</span><span>Higher = faster</span></div><div class="charts">' + evs.map(function (e) { return chart(sid, e); }).join('') + '</div></div>';
+    var qrows = pbTable(sid);
+    var qt = '<div class="card" style="margin-top:14px"><h3 class="card-t">Qualifying times</h3><p class="hint">Example standards managed by admin — not real qualifying times.</p>' + (qrows.length ? qrows.map(function (r) {
+      var pb = r.pb ? r.pb.time : null, qts = pb == null ? [] : qtsFor(s, r.event, pb);
+      return '<div class="trow"><b>' + evName(r.event) + '</b> <span class="small muted">PB ' + fmtTime(pb) + '</span>' + (qts.length ? qts.map(function (q) { return '<div class="qt' + (q.hit ? ' hit' : '') + '"><b>' + esc(q.name) + '</b> ' + fmtTime(q.time) + ' · ' + (q.hit ? 'Achieved' : (q.off > 0 ? q.off.toFixed(2) + 's off' : '')) + '</div>'; }).join('') : '<div class="small muted">No matching standard</div>') + '</div>';
+    }).join('') : '<p class="empty">No times yet.</p>') + '</div>';
+    return goals + qt;
   }
   function badgeCatalog(sid) {
     var s = sw(sid), pbs = pbTable(sid).filter(function (r) { return r.pb; }), md = medals(sid), att = attOf(sid), months = {};
     att.list.forEach(function (a) { var k = a.date.slice(0, 7); months[k] = months[k] || { p: 0, t: 0 }; months[k].t++; if (a.present) months[k].p++; });
     var perfect = Object.keys(months).some(function (k) { return months[k].t > 0 && months[k].p === months[k].t; });
     var smashed = false, qt = false;
-    pbs.forEach(function (r) { var tg = targetOf(sid, r.event); if (tg != null && r.pb.time <= tg) smashed = true; if (qtsFor(s, r.event, r.pb.time).some(function (q) { return q.hit; })) qt = true; });
+    goalEvents(sid).forEach(function (ev) { var tg = targetOf(sid, ev), mark = bestMark(sid, ev); if (tg != null && mark && mark.time <= tg) smashed = true; var comp = pbTable(sid).filter(function (r) { return r.event === ev && r.pb; })[0]; if (comp && qtsFor(s, ev, comp.pb.time).some(function (q) { return q.hit; })) qt = true; });
     var auto = [
       { id: 'first-pb', name: 'First PB', how: 'Record a competition personal best', earned: pbs.length >= 1 },
       { id: 'five-pb', name: '5 PBs', how: 'Hold personal bests in 5 events', earned: pbs.length >= 5 },
@@ -675,7 +712,7 @@
       { id: 'att-10', name: '10 sessions', how: 'Attend 10 sessions', earned: att.present >= 10 },
       { id: 'att-25', name: '25 sessions', how: 'Attend 25 sessions', earned: att.present >= 25 },
       { id: 'att-50', name: '50 sessions', how: 'Attend 50 sessions', earned: att.present >= 50 },
-      { id: 'target', name: 'Target smashed', how: 'Swim a PB at or under a target', earned: smashed },
+      { id: 'target', name: 'Target smashed', how: 'Swim at or under a goal time', earned: smashed },
       { id: 'first-qt', name: 'First QT', how: 'Swim a PB inside an example qualifying time', earned: qt }
     ];
     (db.customBadges || []).filter(function (b) { return b.swimmerId === sid; }).forEach(function (b) { auto.push({ id: b.id, name: b.name, how: b.note || 'Awarded by a coach', earned: true, custom: true, by: b.by }); });
@@ -689,10 +726,6 @@
     }).join('') + '</div>' + (anyNew ? '<div class="actions"><button class="btn sm" data-act="seen-badges" data-id="' + sid + '">Mark badges seen</button></div>' : '') +
       (staff ? '<form class="form" id="badgeForm" data-sid="' + sid + '" style="margin-top:12px"><div class="row c2"><div class="f"><label>Custom badge</label><input name="name" placeholder="Example award name" required></div><div class="f"><label>Note</label><input name="note" placeholder="Why this was awarded"></div></div><div class="actions"><button class="btn sm" type="submit">Award badge</button></div></form>' : '') + '</div>';
     return h;
-  }
-  function viewTargets() {
-    var sid = (S.prefill && S.prefill.sid) || (db.swimmers[0] && db.swimmers[0].id);
-    return '<div class="h-row"><h2 class="sec">Target <em>times</em></h2></div><div class="grid g-rc"><div class="card"><form class="form" id="targetForm"><div class="f"><label>Swimmer</label><select name="sid">' + swimmerOptions(sid) + '</select></div><div class="row c2"><div class="f"><label>Event</label><select name="ev">' + eventOptions(sid, targetOf(sid, '') ) + '</select></div><div class="f"><label>Target</label><input name="time" placeholder="e.g. 36.50 or 1:12.00" required></div></div><div class="actions"><button class="btn" type="submit">Save target</button></div></form></div><div class="card"><h3 class="card-t">Set targets</h3>' + (db.targets || []).slice(0, 12).map(function (t) { var s = sw(t.swimmerId); return '<div class="sess"><span><b>' + esc(s ? fullName(s) : '') + '</b> · ' + evName(t.event) + '</span><span class="time">' + fmtTime(t.time) + '</span></div>'; }).join('') + '</div></div>';
   }
   function viewQT() {
     return '<div class="h-row"><h2 class="sec">Qualifying <em>times</em></h2></div><p class="hint">These tables are example standards for the demo, not real qualifying times.</p>' + (db.qtTables || []).map(function (t) {
@@ -724,7 +757,7 @@
     if (!S.user) { app.innerHTML = viewLogin(); return; }
     if (S.user.role === 'parent') { app.innerHTML = viewParent(); return; }
     if (S.user.role === 'finswimmer') { app.innerHTML = viewFinswimmer(); return; }
-    var inner = S.tab === 'attendance' ? viewAttendance() : S.tab === 'time' ? viewTime() : S.tab === 'result' ? viewResult() : S.tab === 'remark' ? viewRemark() : S.tab === 'comps' ? compsView(null, true) : S.tab === 'media' ? galleryView(null, true) : S.tab === 'targets' ? viewTargets() : S.tab === 'fees' && S.user.role === 'admin' ? viewFeesAdmin() : S.tab === 'qt' && S.user.role === 'admin' ? viewQT() : S.tab === 'manage' && S.user.role === 'admin' ? viewManage() : viewSwimmers();
+    var inner = S.tab === 'attendance' ? viewAttendance() : S.tab === 'time' ? viewTime() : S.tab === 'result' ? viewResult() : S.tab === 'remark' ? viewRemark() : S.tab === 'comps' ? compsView(null, true) : S.tab === 'media' ? galleryView(null, true) : S.tab === 'fees' && S.user.role === 'admin' ? viewFeesAdmin() : S.tab === 'qt' && S.user.role === 'admin' ? viewQT() : S.tab === 'manage' && S.user.role === 'admin' ? viewManage() : viewSwimmers();
     app.innerHTML = shell(inner);
     if (S.tab === 'result') updatePbHint();
     if (S.tab === 'time') updateTimeHint();
@@ -985,11 +1018,16 @@
       if (f.querySelector('#docFile') && f.querySelector('#docFile').files[0]) { readSmallFile(f.querySelector('#docFile'), function (doc) { if (doc === false) return; storeComp(doc); }); return; }
       storeComp(null); return;
     }
-    if (f.id === 'targetForm') {
-      var tt = parseTime(f.time.value); if (tt == null) { toast('Enter a time like 36.50 or 1:12.00'); return; }
-      var existing = (db.targets || []).filter(function (t) { return t.swimmerId === f.sid.value && t.event === f.ev.value; })[0];
-      if (existing) existing.time = tt; else db.targets.push({ id: TP.newId('g'), swimmerId: f.sid.value, event: f.ev.value, time: tt });
-      save(); render(); toast('Target saved'); return;
+    if (f.dataset.kind === 'save-goal') {
+      if (!canEditGoal(f.dataset.sid)) return;
+      var raw = f.time.value.trim();
+      db.targets = db.targets || [];
+      var cur = db.targets.filter(function (t) { return t.swimmerId === f.dataset.sid && t.event === f.dataset.ev; })[0];
+      if (!raw) { db.targets = db.targets.filter(function (t) { return t !== cur; }); save(); render(); toast('Goal removed'); return; }
+      var gt = parseTime(raw); if (gt == null) { toast('Enter a time like 34.52 or 1:05.30'); return; }
+      if (cur) { cur.time = gt; cur.editedBy = S.user.name; cur.editedOn = todayISO(); }
+      else db.targets.push({ id: TP.newId('g'), swimmerId: f.dataset.sid, event: f.dataset.ev, time: gt, editedBy: S.user.name, editedOn: todayISO() });
+      save(); render(); toast('Goal saved'); return;
     }
     if (f.id === 'qtForm') {
       var qt = parseTime(f.time.value); if (qt == null) return;
