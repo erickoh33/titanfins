@@ -1,8 +1,8 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v4';
-  var VERSION = 8;
+  var KEY = 'titanPortalDemo.v5';
+  var VERSION = 9;
 
   var EVENTS = [
     { id: '50SF', name: '50m Surface', kind: 'Surface' },
@@ -184,12 +184,14 @@
     ];
 
     var targets = [];
-    swimmers.forEach(function (s) {
+    ['s1', 's2'].forEach(function (sid) {
+      var s = swimmers.filter(function (x) { return x.id === sid; })[0];
       s.events.forEach(function (ev, j) {
-        var pb = null;
-        results.forEach(function (r) { if (r.swimmerId === s.id && r.event === ev && (pb == null || r.time < pb)) pb = r.time; });
-        if (pb == null) return;
-        targets.push({ id: id('g'), swimmerId: s.id, event: ev, time: r2(j === 0 ? pb * 1.012 : pb * 0.975) });
+        var best = null;
+        results.forEach(function (r) { if (r.swimmerId === sid && r.event === ev && (best == null || r.time < best)) best = r.time; });
+        times.forEach(function (t) { if (t.swimmerId === sid && t.event === ev && (best == null || t.time < best)) best = t.time; });
+        if (best == null) return;
+        targets.push({ id: id('g'), swimmerId: sid, event: ev, time: r2(j === 0 ? best * 1.015 : best * 0.985), editedBy: 'Jason Tan (example parent)', editedOn: '2026-11-01' });
       });
     });
 
