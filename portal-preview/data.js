@@ -1,8 +1,8 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v8';
-  var VERSION = 12;
+  var KEY = 'titanPortalDemo.v9';
+  var VERSION = 13;
 
   var EVENTS = [
     { id: '50BF', name: '50m Bifins', kind: 'Bifins' },
@@ -289,13 +289,30 @@
     var ethTarget = targets.filter(function (t) { return t.swimmerId === 's2' && t.event === '100BF'; })[0];
     if (ethTarget) ethTarget.time = 80.5;
 
-    var media = [
-      { id: 'md1', swimmerIds: ['s1', 's2'], date: '2026-11-08', caption: 'Example: kick set at Section 51A', comment: 'Mia — keep the knees soft on the bifin kick.', kind: 'image', src: '../assets/web/gal1.webp', name: 'gal1.webp' },
-      { id: 'md2', swimmerIds: ['s1'], date: '2026-10-18', caption: 'Example: training photo', comment: 'Hold the streamline a beat longer off each wall.', kind: 'image', src: '../assets/web/prog1.webp', name: 'prog1.webp' },
-      { id: 'md3', swimmerIds: ['s1'], date: '2026-09-20', caption: 'Example technique link', comment: 'Watch the turn, then try it next session.', kind: 'link', src: 'https://example.com/example-technique-clip', name: 'Example clip' }
+    function exThumb(label) {
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#141414"/><rect width="14" height="100%" fill="#CE0037"/><text x="40" y="168" fill="#ffffff" font-family="sans-serif" font-size="30">' + label + '</text><text x="40" y="210" fill="#CE0037" font-family="sans-serif" font-size="16">EXAMPLE — not a real photo</text></svg>';
+      return 'data:image/svg+xml,' + encodeURIComponent(svg);
+    }
+    var exercises = [
+      { id: 'ex1', title: 'Streamline hold', category: 'Dryland', level: 'Beginner', cues: 'Lock the hands, ribs in, squeeze the glutes. Example clip — not a real video.', duration: '30 seconds', reps: '4', kind: 'link', src: 'https://www.youtube.com/watch?v=example-streamline-hold', name: 'Example YouTube link', thumb: exThumb('Streamline hold') },
+      { id: 'ex2', title: 'Hip-driven bifin kick', category: 'Kick drills', level: 'Intermediate', cues: 'Kick from the hips. Knees stay soft. Example clip — not a real video.', duration: '25 metres', reps: '8', kind: 'link', src: 'https://www.youtube.com/watch?v=example-bifin-kick', name: 'Example YouTube link', thumb: exThumb('Bifin kick') },
+      { id: 'ex3', title: 'Block start sequence', category: 'Starts & turns', level: 'Pre-Comp', cues: 'Track the back foot, drive the hips forward, then lock the streamline. Example clip — not a real video.', duration: '', reps: '6', kind: 'link', src: 'https://www.youtube.com/watch?v=example-block-start', name: 'Example YouTube link', thumb: exThumb('Block start') },
+      { id: 'ex4', title: 'Breath-hold comfort', category: 'Apnea', level: 'Beginner', cues: 'Sit tall, relax the shoulders, and stop if it feels sharp. Example photo only.', duration: '20 seconds', reps: '4', kind: 'image', src: exThumb('Breath-hold'), name: 'Example photo', thumb: exThumb('Breath-hold') },
+      { id: 'ex5', title: 'Shoulder openers', category: 'Stretching', level: 'Beginner', cues: 'Slow circles, then a gentle doorway stretch. Example Drive link — not a real file.', duration: '8 minutes', reps: '', kind: 'link', src: 'https://drive.google.com/file/d/example-shoulder-openers/view', name: 'Example Drive link', thumb: exThumb('Shoulder openers') },
+      { id: 'ex6', title: 'Monofin body wave', category: 'Technique', level: 'Intermediate', cues: 'The wave starts at the chest, not the knees. Example clip — not a real video.', duration: '10 minutes', reps: '', kind: 'link', src: 'https://www.youtube.com/watch?v=example-body-wave', name: 'Example YouTube link', thumb: exThumb('Body wave') },
+      { id: 'ex7', title: 'Turn tuck', category: 'Starts & turns', level: 'Intermediate', cues: 'Chin to chest, heels to the seat, then plant the feet. Example photo only.', duration: '', reps: '8', kind: 'image', src: exThumb('Turn tuck'), name: 'Example photo', thumb: exThumb('Turn tuck') },
+      { id: 'ex8', title: 'Core hollow hold', category: 'Dryland', level: 'Pre-Comp', cues: 'Lower back stays on the floor. Example clip — not a real video.', duration: '20 seconds', reps: '5', kind: 'link', src: 'https://www.youtube.com/watch?v=example-hollow-hold', name: 'Example YouTube link', thumb: exThumb('Hollow hold') }
     ];
 
-    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, plans: plans, planRequests: planRequests, allowPlanRequests: true, rewards: rewards, fees: fees, slips: slips, competitions: competitions, targets: targets, pbs: pbs, qtTables: qtTables, media: media, nextId: uid + 1 };
+    var media = [
+      { id: 'md1', swimmerIds: ['s1', 's2'], date: '2026-11-08', event: 'Training', caption: 'Example: kick set at Section 51A', comment: 'Mia — keep the knees soft on the bifin kick.', kind: 'image', src: '../assets/web/gal1.webp', name: 'gal1.webp' },
+      { id: 'md2', swimmerIds: ['s1'], date: '2026-10-18', event: '50m Surface', caption: 'Example: Mia streamline off the wall', comment: 'Hold the streamline a beat longer off each wall.', kind: 'image', src: '../assets/web/prog1.webp', name: 'prog1.webp' },
+      { id: 'md3', swimmerIds: ['s1'], date: '2026-09-27', event: 'Example Junior Open 2026', caption: 'Example: Mia at the Junior Open', comment: 'Example meet clip — not a real video.', kind: 'link', src: 'https://www.youtube.com/watch?v=example-mia-junior-open', name: 'Example YouTube link' },
+      { id: 'md4', swimmerIds: ['s2'], date: '2026-11-08', event: 'Example Club Invitational 2026', caption: 'Example: Ethan 100m bifins', comment: 'Example race photo.', kind: 'image', src: '../assets/web/gal2.webp', name: 'gal2.webp' },
+      { id: 'md5', swimmerIds: ['s2'], date: '2026-10-12', event: '50m Apnea', caption: 'Example: Ethan apnea start', comment: 'Example training clip — not a real video.', kind: 'link', src: 'https://www.youtube.com/watch?v=example-ethan-apnea', name: 'Example YouTube link' }
+    ];
+
+    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, plans: plans, planRequests: planRequests, allowPlanRequests: true, rewards: rewards, fees: fees, slips: slips, competitions: competitions, targets: targets, pbs: pbs, qtTables: qtTables, exercises: exercises, media: media, nextId: uid + 1 };
   }
 
   var db = null;

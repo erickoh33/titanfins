@@ -8,7 +8,7 @@
   var GROUPS = ['Junior', 'Development', 'Performance'];
   var DEMO_PASSWORD = 'demo1234';
 
-  var S = { user: null, tab: null, childId: null, viewSwimmer: null, calMonth: null, filter: { q: '', venue: '', group: '', mine: true }, manage: 'swimmers', editId: null, prefill: {}, att: null, remFilter: 'all', editRemark: null, replyTo: null, editReply: null, openReplies: {} };
+  var S = { user: null, tab: null, childId: null, viewSwimmer: null, calMonth: null, filter: { q: '', venue: '', group: '', mine: true }, manage: 'swimmers', editId: null, prefill: {}, att: null, remFilter: 'all', editRemark: null, replyTo: null, editReply: null, openReplies: {}, exCat: 'all', exQ: '', exId: null, editExercise: null, lib: 'demo', clipSid: '' };
 
   /* ---------- helpers ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -95,7 +95,7 @@
   }
   function homeTab(role) { return role === 'parent' || role === 'finswimmer' ? 'report' : 'swimmers'; }
   function login(u) {
-    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.editReply = null; S.openReplies = {}; S.remFilter = 'all'; S.notedBadges = {};
+    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.editReply = null; S.openReplies = {}; S.remFilter = 'all'; S.notedBadges = {}; S.exCat = 'all'; S.exQ = ''; S.exId = null; S.editExercise = null; S.lib = 'demo'; S.clipSid = '';
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch (e) { }
     render(); window.scrollTo(0, 0);
   }
@@ -129,8 +129,8 @@
   }
 
   function tabsFor(role) {
-    if (role === 'parent' || role === 'finswimmer') return [['report', 'Report card'], ['fees', 'Fees'], ['comps', 'Competitions'], ['gallery', 'Gallery']];
-    var t = [['swimmers', 'Swimmers'], ['attendance', 'Attendance'], ['time', 'Log training time'], ['remark', 'Write remark'], ['comps', 'Competitions'], ['media', 'Photos & videos']];
+    if (role === 'parent' || role === 'finswimmer') return [['report', 'Report card'], ['fees', 'Fees'], ['comps', 'Competitions'], ['library', 'Library']];
+    var t = [['swimmers', 'Swimmers'], ['attendance', 'Attendance'], ['time', 'Log training time'], ['remark', 'Write remark'], ['comps', 'Competitions'], ['library', 'Library']];
     if (role === 'admin') t.push(['results', 'Meet results'], ['fees', 'Fees'], ['qt', 'Qualifying times'], ['manage', 'Manage']);
     return t;
   }
@@ -297,31 +297,33 @@
       calendar(sid, att) + '<div style="margin-top:12px">' + att.list.slice(-6).reverse().map(function (a) {
         var v = venue(a.venueId); return '<div class="sess"><span>' + fmtDate(a.date) + ' <span class="muted small">· ' + esc(v ? v.name : '') + ' ' + esc(a.slot || '') + '</span></span>' + (a.present ? '<span class="p">Present</span>' : '<span class="a">Absent</span>') + '</div>';
       }).join('') + '</div></div></div>';
-    h += targetsBlock(sid) + badgesBlock(sid, staff);
+    h += clipStrip(sid) + targetsBlock(sid) + badgesBlock(sid, staff);
     return h;
   }
 
   function familyTitle(fallback) {
     if (S.tab === 'fees') return 'Fees';
     if (S.tab === 'comps') return 'Competitions';
-    if (S.tab === 'gallery') return 'Gallery';
+    if (S.tab === 'library') return '<em>Library</em>';
     return fallback;
   }
   function viewParent() {
+    if (S.tab === 'library') return shell(viewLibrary());
     var kids = myChildren();
     if (!kids.length) return shell('<p class="empty">No swimmers are linked to this account yet. Please ask the club admin.</p>');
     if (!S.childId || !kids.some(function (k) { return k.id === S.childId; })) S.childId = kids[0].id;
     var h = '<div class="h-row"><h2 class="sec">' + familyTitle('Report <em>card</em>') + '</h2></div>';
     if (kids.length > 1) h += '<div class="switch" role="tablist">' + kids.map(function (k) { return '<button data-child="' + k.id + '" class="' + (k.id === S.childId ? 'on' : '') + '"><span class="av">' + initials(k) + '</span>' + esc(k.first) + '</button>'; }).join('') + '</div>';
-    var body = S.tab === 'fees' ? feesView([S.childId], false) : S.tab === 'comps' ? compsView([S.childId], false) : S.tab === 'gallery' ? galleryView([S.childId], false) : reportCard(S.childId, false);
+    var body = S.tab === 'fees' ? feesView([S.childId], false) : S.tab === 'comps' ? compsView([S.childId], false) : reportCard(S.childId, false);
     return shell(h + body);
   }
 
   function viewFinswimmer() {
+    if (S.tab === 'library') return shell(viewLibrary());
     var s = sw(S.user.swimmerId || S.user.id);
     if (!s) return shell('<p class="empty">This login is not linked to a swimmer yet. Please ask the club admin.</p>');
     var title = S.tab === 'report' || !S.tab ? 'Hi <em>' + esc(s.first) + '</em>' : familyTitle('Hi <em>' + esc(s.first) + '</em>');
-    var body = S.tab === 'fees' ? feesView([s.id], false) : S.tab === 'comps' ? compsView([s.id], false) : S.tab === 'gallery' ? galleryView([s.id], false) : reportCard(s.id, false);
+    var body = S.tab === 'fees' ? feesView([s.id], false) : S.tab === 'comps' ? compsView([s.id], false) : reportCard(s.id, false);
     return shell('<div class="h-row"><h2 class="sec">' + title + '</h2></div>' + body);
   }
 
@@ -933,15 +935,40 @@
       return '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(t.name) + '</h3><p class="hint">' + esc(t.note || '') + '</p><div class="scroll-x"><table class="t"><thead><tr><th>Event</th><th>Gender</th><th>Ages</th><th>Time</th><th></th></tr></thead><tbody>' + (t.rows || []).map(function (r, i) { return '<tr><td>' + evName(r.event) + '</td><td>' + (r.gender === 'F' ? 'Female' : 'Male') + '</td><td>' + r.ageMin + '–' + r.ageMax + '</td><td>' + fmtTime(r.time) + '</td><td><button class="del" data-act="del-qt" data-id="' + t.id + '" data-i="' + i + '">Delete</button></td></tr>'; }).join('') + '</tbody></table></div><form class="form" id="qtForm" data-table="' + t.id + '" style="margin-top:12px"><div class="row c3"><div class="f"><label>Event</label><select name="ev">' + db.events.map(function (e) { return '<option value="' + e.id + '">' + e.name + '</option>'; }).join('') + '</select></div><div class="f"><label>Gender</label><select name="gender"><option value="F">Female</option><option value="M">Male</option></select></div><div class="f"><label>Time</label><input name="time" placeholder="32.50" required></div></div><div class="row c2"><div class="f"><label>Age from</label><input name="ageMin" type="number" value="8"></div><div class="f"><label>Age to</label><input name="ageMax" type="number" value="11"></div></div><div class="actions"><button class="btn sm" type="submit">Add standard</button></div></form></div>';
     }).join('') + '<div class="card"><h3 class="card-t">New example table</h3><form class="form" id="qtTableForm"><div class="f"><label>Name</label><input name="name" placeholder="Example Regional QT 2026" required></div><div class="actions"><button class="btn" type="submit">Create table</button></div></form></div>';
   }
-  function galleryView(ids, staff) {
-    var items = (db.media || []).filter(function (m) { return staff || (m.swimmerIds || []).some(function (id) { return ids.indexOf(id) >= 0; }); }).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
-    var h = '<div class="gallery">' + (items.length ? items.map(function (m) {
-      var who = (m.swimmerIds || []).map(function (id) { var s = sw(id); return s ? fullName(s) : ''; }).filter(Boolean).join(', ');
-      var pic = m.kind === 'video' ? '<video controls src="' + esc(m.src) + '"></video>' : m.kind === 'link' ? '<a class="btn sm ghost" href="' + esc(m.src) + '" target="_blank" rel="noopener">' + esc(m.name || 'Open link') + '</a>' : '<img src="' + esc(m.src) + '" alt="' + esc(m.caption || 'Training photo') + '">';
-      return '<article class="shot"><div class="frame">' + pic + '</div><b>' + esc(m.caption || 'Photo') + '</b><div class="small muted">' + fmtDate(m.date) + ' · ' + esc(who) + '</div>' + (m.comment ? '<p>' + esc(m.comment) + '</p>' : '') + '</article>';
-    }).join('') : '<p class="empty">No photos yet.</p>') + '</div>';
-    if (!staff) return h;
-    return h + '<div class="card" style="margin-top:14px"><h3 class="card-t">Add photo, video or link</h3><form class="form" id="mediaForm"><div class="f"><label>Tag swimmers</label>' + checks('swimmerIds', db.swimmers.map(function (s) { return [s.id, fullName(s)]; }), []) + '</div><div class="row c2"><div class="f"><label>Date</label><input type="date" name="date" value="' + todayISO() + '"></div><div class="f"><label>Caption</label><input name="caption" placeholder="Example: turn practice"></div></div><div class="f"><label>Coach comment</label><textarea name="comment" placeholder="Technique note, optional"></textarea></div><div class="f"><label>Link (YouTube, Instagram or Drive)</label><input name="link" placeholder="https://…"></div><div class="f"><label>Or a small file</label><input id="mediaFile" type="file" accept="image/*,video/*"><div class="hint">Demo limit 500 KB. Bigger files are refused — use a link instead.</div></div><div class="actions"><button class="btn" type="submit">Add to gallery</button><span class="small" id="medErr" style="color:var(--crimson);font-weight:800"></span></div></form></div>';
+  function clipPeople() {
+    if (!S.user) return [];
+    if (S.user.role === 'finswimmer') return [S.user.swimmerId || S.user.id];
+    if (S.user.role === 'parent') return myChildren().map(function (k) { return k.id; });
+    return null;
+  }
+  function visibleClips() {
+    var items = (db.media || []).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    var mine = clipPeople();
+    if (mine) items = items.filter(function (m) { return (m.swimmerIds || []).some(function (id) { return mine.indexOf(id) >= 0; }); });
+    if (S.clipSid) items = items.filter(function (m) { return (m.swimmerIds || []).indexOf(S.clipSid) >= 0; });
+    return items;
+  }
+  function clipCard(m, staff) {
+    var who = (m.swimmerIds || []).map(function (id) { var s = sw(id); return s ? fullName(s) : ''; }).filter(Boolean).join(', ');
+    var pic = m.kind === 'video' ? '<video controls src="' + esc(m.src) + '"></video>' : '<img src="' + esc(m.kind === 'image' && m.src ? m.src : exerciseThumb({ title: m.caption || 'Clip' })) + '" alt="' + esc(m.caption || 'Training clip') + '">';
+    var link = m.kind === 'link' && m.src ? '<a class="btn sm ghost" href="' + esc(m.src) + '" target="_blank" rel="noopener">' + esc(m.name || 'Open example link') + '</a>' : '';
+    return '<article class="shot"><div class="frame">' + pic + '</div><b>' + esc(m.caption || 'Clip') + '</b><div class="small muted">' + fmtDate(m.date) + (m.event ? ' · ' + esc(m.event) : '') + '<br>' + esc(who) + '</div>' + (m.comment ? '<p>' + esc(m.comment) + '</p>' : '') + link +
+      (staff ? '<div class="ex-admin"><button type="button" data-clipdel="' + m.id + '">Delete</button></div>' : '') + '</article>';
+  }
+  function clipStrip(sid) {
+    var items = (db.media || []).filter(function (m) { return (m.swimmerIds || []).indexOf(sid) >= 0; }).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).slice(0, 3);
+    if (!items.length) return '';
+    return '<div class="card" style="margin-top:14px"><h3 class="card-t">Latest clips</h3><p class="hint">From the Finswimmer Library.</p><div class="gallery">' + items.map(function (m) { return clipCard(m, false); }).join('') + '</div><div class="actions"><button class="btn sm ghost" type="button" data-act="see-clips" data-sid="' + sid + '">Open Finswimmer Library</button></div></div>';
+  }
+  function clipLibrary() {
+    var staff = canUploadExercise();
+    var people = clipPeople();
+    var choices = people ? db.swimmers.filter(function (s) { return people.indexOf(s.id) >= 0; }) : db.swimmers;
+    var filter = choices.length > 1 ? '<div class="f" style="margin-bottom:12px"><label for="clipSid">Swimmer</label><select id="clipSid"><option value="">' + (S.user.role === 'parent' ? 'All my swimmers' : 'All swimmers') + '</option>' + choices.map(function (s) { return '<option value="' + s.id + '"' + (S.clipSid === s.id ? ' selected' : '') + '>' + esc(fullName(s)) + '</option>'; }).join('') + '</select></div>' : '';
+    var items = visibleClips();
+    var grid = '<div class="gallery">' + (items.length ? items.map(function (m) { return clipCard(m, staff); }).join('') : '<p class="empty">No clips for this swimmer yet.</p>') + '</div>';
+    var form = staff ? '<div class="card" style="margin-bottom:14px" id="clipFormCard"><h3 class="card-t">Add a finswimmer clip</h3><form class="form" id="clipForm"><div class="f"><label>Tag finswimmers</label>' + checks('swimmerIds', db.swimmers.map(function (s) { return [s.id, fullName(s)]; }), S.clipSid ? [S.clipSid] : []) + '</div><div class="row c2"><div class="f"><label>Date</label><input type="date" name="date" value="' + todayISO() + '"></div><div class="f"><label>Event or competition</label><input name="event" list="clipEvents" placeholder="e.g. 50m Surface"><datalist id="clipEvents">' + db.events.map(function (e) { return '<option value="' + esc(e.name) + '">'; }).join('') + (db.competitions || []).map(function (c) { return '<option value="' + esc(c.name) + '">'; }).join('') + '</datalist></div></div><div class="f"><label>Caption</label><input name="caption" placeholder="Example: turn practice" required></div><div class="f"><label>Coaching note (optional)</label><textarea name="comment" placeholder="What to look at"></textarea></div><div class="f"><label>YouTube or Drive link</label><input name="link" placeholder="https://www.youtube.com/watch?v=example-…"></div><div class="f"><label>Or a demo photo / short video</label><input id="clipFile" type="file" accept="image/*,video/*"><div class="hint">Demo limit 500 KB. Example links are not real videos.</div></div><div class="actions"><button class="btn" type="submit">Add clip</button><span class="small" id="clipErr" style="color:var(--crimson);font-weight:800"></span></div></form></div>' : '';
+    return '<p class="hint">Training and competition clips tagged to a finswimmer. ' + (S.user.role === 'parent' ? 'You see clips of your own children.' : S.user.role === 'finswimmer' ? 'You see only your own clips.' : 'Coaches and admin see every swimmer.') + '</p>' + filter + form + grid;
   }
   function readSmallFile(input, cb) {
     var file = input && input.files && input.files[0];
@@ -952,13 +979,82 @@
     reader.readAsDataURL(file);
   }
 
+  var EX_CATS = ['Dryland', 'Kick drills', 'Starts & turns', 'Apnea', 'Stretching', 'Technique'];
+  var EX_LEVELS = ['Beginner', 'Intermediate', 'Pre-Comp'];
+  function canUploadExercise() { return !!(S.user && (S.user.role === 'admin' || S.user.role === 'coach')); }
+  function canEditExercise() { return !!(S.user && S.user.role === 'admin'); }
+  function youtubeId(url) {
+    var m = String(url || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
+    return m && !/example/i.test(m[1]) ? m[1] : '';
+  }
+  function exerciseThumb(item) {
+    if (item.thumb) return item.thumb;
+    if (item.kind === 'image' && item.src) return item.src;
+    var label = String(item.title || 'Exercise').replace(/[<>&]/g, '');
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#141414"/><rect width="14" height="100%" fill="#CE0037"/><text x="40" y="170" fill="#fff" font-family="sans-serif" font-size="28">' + label + '</text><text x="40" y="210" fill="#CE0037" font-family="sans-serif" font-size="16">EXAMPLE</text></svg>';
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+  function exerciseMedia(item) {
+    var src = item.src || '', yid = youtubeId(src);
+    if (yid) return '<div class="ex-frame"><iframe src="https://www.youtube-nocookie.com/embed/' + yid + '" title="' + esc(item.title) + '" allow="fullscreen" allowfullscreen loading="lazy"></iframe></div>';
+    if (/youtube\.com|youtu\.be/.test(src)) return '<div class="ex-frame ex-ph"><img src="' + esc(exerciseThumb(item)) + '" alt=""><p>Example YouTube link — no video is loaded.</p><a class="btn sm ghost" href="' + esc(src) + '" target="_blank" rel="noopener">' + esc(item.name || 'Open example link') + '</a></div>';
+    if (/drive\.google\.com/.test(src)) return '<div class="ex-frame ex-ph"><img src="' + esc(exerciseThumb(item)) + '" alt=""><p>Example Google Drive link — no file is loaded.</p><a class="btn sm ghost" href="' + esc(src) + '" target="_blank" rel="noopener">' + esc(item.name || 'Open example link') + '</a></div>';
+    if (item.kind === 'video') return '<div class="ex-frame"><video controls src="' + esc(src) + '"></video></div>';
+    if (src) return '<div class="ex-frame"><img src="' + esc(src) + '" alt="' + esc(item.title) + '"></div>';
+    return '<div class="ex-frame"><img src="' + esc(exerciseThumb(item)) + '" alt=""></div>';
+  }
+  function exerciseForm(item) {
+    item = item || { title: '', category: EX_CATS[0], level: EX_LEVELS[0], cues: '', duration: '', reps: '', src: '' };
+    return '<div class="card" style="margin-bottom:14px" id="exFormCard"><h3 class="card-t">' + (item.id ? 'Edit exercise' : 'Add an exercise') + '</h3><form class="form" id="exForm">' +
+      '<div class="f"><label>Title</label><input name="title" value="' + esc(item.title || '') + '" required></div>' +
+      '<div class="row c2"><div class="f"><label>Category</label><select name="category">' + EX_CATS.map(function (c) { return '<option' + (c === item.category ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div><div class="f"><label>Level</label><select name="level">' + EX_LEVELS.map(function (c) { return '<option' + (c === item.level ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="f"><label>Description and coaching cues</label><textarea name="cues" placeholder="What to look for">' + esc(item.cues || '') + '</textarea></div>' +
+      '<div class="row c2"><div class="f"><label>Duration (optional)</label><input name="duration" value="' + esc(item.duration || '') + '" placeholder="e.g. 30 seconds"></div><div class="f"><label>Reps (optional)</label><input name="reps" value="' + esc(item.reps || '') + '" placeholder="e.g. 4"></div></div>' +
+      '<div class="f"><label>YouTube or Google Drive link</label><input name="link" value="' + esc(item.kind === 'link' ? item.src || '' : '') + '" placeholder="https://www.youtube.com/watch?v=example-…"></div>' +
+      '<div class="f"><label>Or a demo photo / short video</label><input id="exFile" type="file" accept="image/*,video/*"><div class="hint">Demo limit 500 KB. Larger files are refused — paste a link instead. Example links are not real videos.</div></div>' +
+      '<div class="actions"><button class="btn" type="submit">' + (item.id ? 'Save exercise' : 'Add exercise') + '</button>' + (item.id ? '<button class="btn ghost" type="button" data-act="cancel-ex">Cancel</button>' : '') + '<span class="small" id="exErr" style="color:var(--crimson);font-weight:800"></span></div></form></div>';
+  }
+  function viewExercises() {
+    var list = db.exercises || [];
+    if (S.exId) {
+      var item = list.filter(function (x) { return x.id === S.exId; })[0];
+      if (!item) S.exId = null;
+      else {
+        var meta = [item.category, item.level].filter(Boolean).join(' · ');
+        var dose = [item.duration, item.reps ? item.reps + (String(item.reps).match(/[a-z]/i) ? '' : ' reps') : ''].filter(Boolean).join(' · ');
+        return '<button class="back" data-act="ex-back">‹ Library</button><article class="card"><h3 class="card-t">' + esc(item.title) + '</h3><p class="muted">' + esc(meta) + (dose ? ' · ' + esc(dose) : '') + '</p>' + exerciseMedia(item) + (item.cues ? '<p>' + esc(item.cues) + '</p>' : '') +
+          (canEditExercise() ? '<div class="actions" style="margin-top:12px"><button class="btn sm ghost" data-exedit="' + item.id + '">Edit</button><button class="btn sm ghost" data-exdel="' + item.id + '">Delete</button></div>' : '') + '</article>';
+      }
+    }
+    var q = (S.exQ || '').toLowerCase();
+    var shown = list.filter(function (x) {
+      if (S.exCat && S.exCat !== 'all' && x.category !== S.exCat) return false;
+      if (!q) return true;
+      return (x.title + ' ' + x.cues + ' ' + x.category + ' ' + x.level).toLowerCase().indexOf(q) >= 0;
+    });
+    var filters = '<div class="rem-filters" role="group" aria-label="Exercise category">' + ['all'].concat(EX_CATS).map(function (c) { return '<button type="button" data-excat="' + esc(c) + '" class="' + ((S.exCat || 'all') === c ? 'on' : '') + '">' + (c === 'all' ? 'All' : esc(c)) + '</button>'; }).join('') + '</div>';
+    var search = '<div class="f" style="margin-bottom:12px"><label for="exQ">Search</label><input id="exQ" value="' + esc(S.exQ || '') + '" placeholder="Search title or cues" autocomplete="off"></div>';
+    var cards = shown.length ? '<div class="exgrid">' + shown.map(function (x) {
+      var dose = [x.duration, x.reps ? x.reps + (String(x.reps).match(/[a-z]/i) ? '' : ' reps') : ''].filter(Boolean).join(' · ');
+      return '<article class="excard"><button type="button" class="exhit" data-ex="' + x.id + '"><img src="' + esc(exerciseThumb(x)) + '" alt=""><span class="pad"><span class="ex-chips"><span class="chip">' + esc(x.category) + '</span><span class="chip lvl">' + esc(x.level) + '</span></span><b>' + esc(x.title) + '</b>' + (dose ? '<span class="small muted">' + esc(dose) + '</span>' : '') + '</span></button>' +
+        (canEditExercise() ? '<div class="ex-admin"><button type="button" data-exedit="' + x.id + '">Edit</button><button type="button" data-exdel="' + x.id + '">Delete</button></div>' : '') + '</article>';
+    }).join('') + '</div>' : '<p class="empty">No exercises match.</p>';
+    var editing = S.editExercise ? list.filter(function (x) { return x.id === S.editExercise; })[0] : null;
+    return '<p class="hint">Reference exercises for every family. Example links are not real videos.</p>' + filters + search + (canUploadExercise() ? exerciseForm(editing) : '') + cards;
+  }
+  function viewLibrary() {
+    var lib = S.lib === 'swimmers' ? 'swimmers' : 'demo';
+    var tabs = '<div class="subtabs" role="tablist"><button type="button" data-lib="demo" class="' + (lib === 'demo' ? 'on' : '') + '">Demo Library</button><button type="button" data-lib="swimmers" class="' + (lib === 'swimmers' ? 'on' : '') + '">Finswimmer Library</button></div>';
+    return '<div class="h-row"><h2 class="sec"><em>Library</em></h2></div>' + tabs + (lib === 'swimmers' ? clipLibrary() : viewExercises());
+  }
+
   /* ---------- render ---------- */
   function render() {
     var app = $('#app');
     if (!S.user) { app.innerHTML = viewLogin(); return; }
     if (S.user.role === 'parent') { app.innerHTML = viewParent(); return; }
     if (S.user.role === 'finswimmer') { app.innerHTML = viewFinswimmer(); return; }
-    var inner = S.tab === 'attendance' ? viewAttendance() : S.tab === 'time' ? viewTime() : S.tab === 'remark' ? viewRemark() : S.tab === 'comps' ? compsView(null, true) : S.tab === 'media' ? galleryView(null, true) : S.tab === 'results' && S.user.role === 'admin' ? viewMeetResults() : S.tab === 'fees' && S.user.role === 'admin' ? viewFeesAdmin() : S.tab === 'qt' && S.user.role === 'admin' ? viewQT() : S.tab === 'manage' && S.user.role === 'admin' ? viewManage() : viewSwimmers();
+    var inner = S.tab === 'attendance' ? viewAttendance() : S.tab === 'time' ? viewTime() : S.tab === 'remark' ? viewRemark() : S.tab === 'comps' ? compsView(null, true) : S.tab === 'library' ? viewLibrary() : S.tab === 'results' && S.user.role === 'admin' ? viewMeetResults() : S.tab === 'fees' && S.user.role === 'admin' ? viewFeesAdmin() : S.tab === 'qt' && S.user.role === 'admin' ? viewQT() : S.tab === 'manage' && S.user.role === 'admin' ? viewManage() : viewSwimmers();
     app.innerHTML = shell(inner);
     if (S.tab === 'result') updatePbHint();
     if (S.tab === 'time') updateTimeHint();
@@ -983,7 +1079,7 @@
 
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-demo],[data-act],[data-tab],[data-child],[data-open],[data-go],[data-sub],[data-edit],[data-del],[data-scope],[data-remfilter],[data-editrem],[data-delrem],[data-reply],[data-editreply],[data-delreply],[data-thread]');
+    var el = e.target.closest('[data-demo],[data-act],[data-tab],[data-child],[data-open],[data-go],[data-sub],[data-edit],[data-del],[data-scope],[data-remfilter],[data-editrem],[data-delrem],[data-reply],[data-editreply],[data-delreply],[data-thread],[data-excat],[data-ex],[data-exedit],[data-exdel],[data-lib],[data-clipdel]');
     if (!el) return;
     if (el.dataset.demo) { var u = findUser(el.dataset.demo); if (u) login(u); return; }
     if (el.dataset.scope) { S.filter.mine = el.dataset.scope !== 'all'; render(); return; }
@@ -1003,6 +1099,22 @@
       save(); render(); toast('Reply deleted'); return;
     }
     if (el.dataset.reply) { S.replyTo = el.dataset.reply; S.editRemark = null; S.editReply = null; render(); var rp = $('#replyForm'); if (rp) rp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (el.dataset.excat) { S.exCat = el.dataset.excat; S.exId = null; render(); return; }
+    if (el.dataset.exedit) { if (!canEditExercise()) return; S.editExercise = el.dataset.exedit; S.exId = null; render(); var ef = $('#exFormCard'); if (ef) ef.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (el.dataset.exdel) {
+      if (!canEditExercise() || !confirm('Delete this exercise?')) return;
+      db.exercises = (db.exercises || []).filter(function (x) { return x.id !== el.dataset.exdel; });
+      if (S.exId === el.dataset.exdel) S.exId = null;
+      if (S.editExercise === el.dataset.exdel) S.editExercise = null;
+      save(); render(); toast('Exercise deleted'); return;
+    }
+    if (el.dataset.ex) { S.exId = el.dataset.ex; render(); window.scrollTo(0, 0); return; }
+    if (el.dataset.lib) { S.lib = el.dataset.lib; S.exId = null; render(); return; }
+    if (el.dataset.clipdel) {
+      if (!canUploadExercise() || !confirm('Delete this clip?')) return;
+      db.media = (db.media || []).filter(function (m) { return m.id !== el.dataset.clipdel; });
+      save(); render(); toast('Clip deleted'); return;
+    }
     if (el.dataset.open) { S.viewSwimmer = el.dataset.open; S.calMonth = null; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.go) { S.tab = el.dataset.go; S.prefill = { sid: el.dataset.sid }; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.sub) { S.manage = el.dataset.sub; S.editId = null; render(); return; }
@@ -1026,6 +1138,9 @@
     else if (a === 'cancel-rem') { S.editRemark = null; render(); }
     else if (a === 'cancel-reply') { S.replyTo = null; render(); }
     else if (a === 'cancel-reply-edit') { S.editReply = null; render(); }
+    else if (a === 'ex-back') { S.exId = null; render(); }
+    else if (a === 'cancel-ex') { S.editExercise = null; render(); }
+    else if (a === 'see-clips') { S.tab = 'library'; S.lib = 'swimmers'; S.clipSid = el.dataset.sid || ''; S.viewSwimmer = null; render(); window.scrollTo(0, 0); }
     else if (a === 'pay-fee') { S.payId = el.dataset.id; render(); }
     else if (a === 'fee-year') { S.feeYear = el.dataset.id; render(); }
     else if (a === 'verify-slip') {
@@ -1058,6 +1173,7 @@
     if (t.id === 'fv') { S.filter.venue = t.value; render(); return; }
     if (t.id === 'fg') { S.filter.group = t.value; render(); return; }
     if (t.id === 'meetPick') { S.meetId = t.value; render(); return; }
+    if (t.id === 'clipSid') { S.clipSid = t.value; render(); return; }
     if (t.matches('.chk input')) { t.closest('.chk').classList.toggle('on', t.checked); return; }
     if (t.id === 'ts' || t.id === 'rs') { var f = t.form; var keep = { sid: t.value, time: f.time.value, date: f.date.value }; if (f.comp) { keep.comp = f.comp.value; keep.place = f.place.value; } var sw0 = sw(t.value); keep.ev = sw0.events[0]; S.prefill = keep; render(); return; }
     if (t.id === 'te' || t.id === 're') { updatePbHint(); updateTimeHint(); return; }
@@ -1066,6 +1182,8 @@
   document.addEventListener('input', function (e) {
     var t = e.target;
     if (t.id === 'fq') { S.filter.q = t.value; var pos = t.selectionStart; render(); var n = $('#fq'); n.focus(); n.setSelectionRange(pos, pos); return; }
+    if (t.id === 'exQ') { S.exQ = t.value; var exPos = t.selectionStart; render(); var exn = $('#exQ'); if (exn) { exn.focus(); exn.setSelectionRange(exPos, exPos); } return; }
+    if (t.id === 'clipSid') { S.clipSid = t.value; render(); return; }
     if (t.form && t.form.id === 'resForm') updatePbHint();
     if (t.form && t.form.id === 'timeForm') updateTimeHint();
   });
@@ -1308,18 +1426,42 @@
       db.qtTables.push({ id: TP.newId('q'), name: f.name.value.trim(), note: 'Fictional example standards — not real qualifying times.', rows: [] });
       save(); render(); toast('Table created'); return;
     }
-    if (f.id === 'mediaForm') {
-      var ids = vals('swimmerIds');
-      if (!ids.length) { err('medErr', 'Tag at least one swimmer'); return; }
-      function pushMedia(item) {
-        db.media = db.media || [];
-        db.media.push({ id: TP.newId('md'), swimmerIds: ids, date: f.date.value || todayISO(), caption: f.caption.value.trim(), comment: f.comment.value.trim(), kind: item.kind, src: item.href, name: item.name });
-        save(); render(); toast('Added to the gallery');
+    if (f.id === 'exForm') {
+      var extitle = f.title.value.trim();
+      if (!extitle) { err('exErr', 'Add a title'); return; }
+      var exExisting = S.editExercise ? (db.exercises || []).filter(function (x) { return x.id === S.editExercise; })[0] : null;
+      if (exExisting && !canEditExercise()) return;
+      if (!exExisting && !canUploadExercise()) return;
+      function storeExercise(media) {
+        var rec = { title: extitle, category: f.category.value, level: f.level.value, cues: f.cues.value.trim(), duration: f.duration.value.trim(), reps: f.reps.value.trim(), kind: media.kind, src: media.href, name: media.name || '' };
+        if (media.kind === 'image') rec.thumb = media.href;
+        db.exercises = db.exercises || [];
+        if (exExisting) Object.assign(exExisting, rec);
+        else { rec.id = TP.newId('ex'); db.exercises.unshift(rec); }
+        S.editExercise = null; save(); render(); toast(exExisting ? 'Exercise updated' : 'Exercise added');
       }
-      var link = f.link.value.trim();
-      if (f.querySelector('#mediaFile') && f.querySelector('#mediaFile').files[0]) { readSmallFile(f.querySelector('#mediaFile'), function (doc) { if (doc) pushMedia(doc); }); return; }
-      if (!link) { err('medErr', 'Add a small file or a link'); return; }
-      pushMedia({ kind: 'link', href: link, name: 'Link' }); return;
+      var exFile = f.querySelector('#exFile');
+      var exLink = f.link.value.trim();
+      if (exFile && exFile.files[0]) { readSmallFile(exFile, function (doc) { if (doc) storeExercise(doc); }); return; }
+      if (exLink) { storeExercise({ kind: 'link', href: exLink, name: /drive\.google/.test(exLink) ? 'Drive link' : 'Link' }); return; }
+      if (exExisting && exExisting.src) { storeExercise({ kind: exExisting.kind, href: exExisting.src, name: exExisting.name || '' }); return; }
+      err('exErr', 'Add a photo, a short video, or a link'); return;
+    }
+    if (f.id === 'clipForm') {
+      if (!canUploadExercise()) return;
+      var ids = vals('swimmerIds');
+      if (!ids.length) { err('clipErr', 'Tag at least one finswimmer'); return; }
+      if (!f.caption.value.trim()) { err('clipErr', 'Add a caption'); return; }
+      function pushClip(item) {
+        db.media = db.media || [];
+        db.media.unshift({ id: TP.newId('md'), swimmerIds: ids, date: f.date.value || todayISO(), event: f.event.value.trim(), caption: f.caption.value.trim(), comment: f.comment.value.trim(), kind: item.kind, src: item.href, name: item.name });
+        save(); render(); toast('Clip added');
+      }
+      var clipLink = f.link.value.trim();
+      var clipFile = f.querySelector('#clipFile');
+      if (clipFile && clipFile.files[0]) { readSmallFile(clipFile, function (doc) { if (doc) pushClip(doc); }); return; }
+      if (!clipLink) { err('clipErr', 'Add a photo, a short video, or a link'); return; }
+      pushClip({ kind: 'link', href: clipLink, name: /drive\.google/.test(clipLink) ? 'Drive link' : 'Link' }); return;
     }
     if (f.id === 'veForm') {
       if (!f.name.value.trim()) { err('vErr', 'Venue name is required'); return; }
