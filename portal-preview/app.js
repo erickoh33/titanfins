@@ -95,7 +95,7 @@
   }
   function homeTab(role) { return role === 'parent' || role === 'finswimmer' ? 'report' : 'swimmers'; }
   function login(u) {
-    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.remFilter = 'all';
+    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.remFilter = 'all'; S.notedBadges = {};
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch (e) { }
     render(); window.scrollTo(0, 0);
   }
@@ -645,7 +645,8 @@
   }
   function compCard(c, ids) {
     var entered = (c.entries || []).filter(function (e) { return !ids || ids.indexOf(e.swimmerId) >= 0; });
-    return '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(c.name) + '</h3><p class="muted">' + fmtDate(c.start) + (c.end && c.end !== c.start ? ' – ' + fmtDate(c.end) : '') + ' · ' + esc(c.venue) + '</p><p style="margin:8px 0"><b>' + daysUntil(c.start) + '</b> · entry deadline ' + fmtDate(c.deadline) + ' (' + daysUntil(c.deadline) + ')' + (c.fee ? ' · entry ' + rm(c.fee) : ' · no entry fee') + '</p>' + (c.notes ? '<p>' + esc(c.notes) + '</p>' : '') +
+    var flag = (c.representing ? 'Representing ' + c.representing : '') + (c.country ? (c.representing ? ' · ' : '') + c.country : '');
+    return '<div class="card" style="margin-bottom:14px"><h3 class="card-t">' + esc(c.name) + '</h3><p class="muted">' + fmtDate(c.start) + (c.end && c.end !== c.start ? ' – ' + fmtDate(c.end) : '') + ' · ' + esc(c.venue) + (flag ? ' · ' + esc(flag) : '') + '</p><p style="margin:8px 0"><b>' + daysUntil(c.start) + '</b> · entry deadline ' + fmtDate(c.deadline) + ' (' + daysUntil(c.deadline) + ')' + (c.fee ? ' · entry ' + rm(c.fee) : ' · no entry fee') + '</p>' + (c.notes ? '<p>' + esc(c.notes) + '</p>' : '') +
       entered.map(function (e) { var s = sw(e.swimmerId); return '<div class="sess"><span><b>' + esc(s ? fullName(s) : '') + '</b><br><span class="small muted">' + (e.events || []).map(evName).join(', ') + '</span></span></div>'; }).join('') +
       ((c.docs || []).length ? '<div class="docs">' + c.docs.map(function (d) { return '<a class="btn sm ghost" href="' + esc(d.href) + '" ' + (String(d.href).indexOf('data:') === 0 ? 'download="' + esc(d.name) + '"' : 'target="_blank" rel="noopener"') + '>' + esc(d.name) + '</a>'; }).join('') + '</div>' : '') +
       (ids ? '' : '<div class="actions" style="margin-top:10px"><button class="btn sm ghost" data-act="edit-comp" data-id="' + c.id + '">Edit</button></div>') + '</div>';
@@ -655,8 +656,8 @@
     var h = list.length ? list.map(function (c) { return compCard(c, staff ? null : ids); }).join('') : '<p class="empty">No upcoming competitions.</p>';
     if (!staff) return h;
     var e = S.editId ? (db.competitions || []).filter(function (c) { return c.id === S.editId; })[0] : null;
-    e = e || { name: '', start: '', end: '', venue: '', deadline: '', fee: '', notes: '', docs: [], entries: [] };
-    h += '<div class="card"><h3 class="card-t">' + (S.editId ? 'Edit competition' : 'Add competition') + '</h3><form class="form" id="compForm"><div class="f"><label>Name</label><input name="name" value="' + esc(e.name) + '" required></div><div class="row c3"><div class="f"><label>Start</label><input type="date" name="start" value="' + esc(e.start) + '" required></div><div class="f"><label>End</label><input type="date" name="end" value="' + esc(e.end || '') + '"></div><div class="f"><label>Entry deadline</label><input type="date" name="deadline" value="' + esc(e.deadline) + '" required></div></div><div class="row c2"><div class="f"><label>Venue</label><input name="venue" value="' + esc(e.venue) + '"></div><div class="f"><label>Entry fee (RM)</label><input name="fee" type="number" min="0" step="0.01" value="' + esc(e.fee || 0) + '"></div></div><div class="f"><label>Notes</label><textarea name="notes">' + esc(e.notes || '') + '</textarea></div><div class="f"><label>Document link</label><input name="doclink" placeholder="https://…"><div class="hint">Or attach a small PDF/image (max 500 KB). Larger files are refused in this demo.</div><input id="docFile" type="file" accept="image/*,.pdf,application/pdf"></div><div class="f"><label>Entries</label>' +
+    e = e || { name: '', start: '', end: '', venue: '', deadline: '', fee: '', notes: '', docs: [], entries: [], representing: '', country: 'Malaysia' };
+    h += '<div class="card"><h3 class="card-t">' + (S.editId ? 'Edit competition' : 'Add competition') + '</h3><form class="form" id="compForm"><div class="f"><label>Name</label><input name="name" value="' + esc(e.name) + '" required></div><div class="row c3"><div class="f"><label>Start</label><input type="date" name="start" value="' + esc(e.start) + '" required></div><div class="f"><label>End</label><input type="date" name="end" value="' + esc(e.end || '') + '"></div><div class="f"><label>Entry deadline</label><input type="date" name="deadline" value="' + esc(e.deadline) + '" required></div></div><div class="row c2"><div class="f"><label>Venue</label><input name="venue" value="' + esc(e.venue) + '"></div><div class="f"><label>Entry fee (RM)</label><input name="fee" type="number" min="0" step="0.01" value="' + esc(e.fee || 0) + '"></div></div><div class="row c2"><div class="f"><label>Representing</label><select name="representing"><option value="">Not a team</option><option value="KL"' + (e.representing === 'KL' ? ' selected' : '') + '>KL</option><option value="Malaysia"' + (e.representing === 'Malaysia' ? ' selected' : '') + '>Malaysia</option></select><div class="hint">KL or Malaysia earns Flag Bearer.</div></div><div class="f"><label>Country</label><input name="country" value="' + esc(e.country || 'Malaysia') + '" placeholder="Malaysia"><div class="hint">A country other than Malaysia earns Globetrotter.</div></div></div><div class="f"><label>Notes</label><textarea name="notes">' + esc(e.notes || '') + '</textarea></div><div class="f"><label>Document link</label><input name="doclink" placeholder="https://…"><div class="hint">Or attach a small PDF/image (max 500 KB). Larger files are refused in this demo.</div><input id="docFile" type="file" accept="image/*,.pdf,application/pdf"></div><div class="f"><label>Entries</label>' +
       db.swimmers.map(function (s) { var en = (e.entries || []).filter(function (x) { return x.swimmerId === s.id; })[0]; var evs = en ? en.events : []; return '<div class="entry"><label class="chk' + (en ? ' on' : '') + '"><input type="checkbox" name="enter" value="' + s.id + '"' + (en ? ' checked' : '') + '> ' + esc(fullName(s)) + '</label><div class="checks">' + (s.events || []).map(function (ev) { var on = evs.indexOf(ev) >= 0; return '<label class="chk' + (on ? ' on' : '') + '"><input type="checkbox" name="ev-' + s.id + '" value="' + ev + '"' + (on ? ' checked' : '') + '>' + evName(ev) + '</label>'; }).join('') + '</div></div>'; }).join('') +
       '</div><div class="actions"><button class="btn" type="submit">' + (S.editId ? 'Save competition' : 'Add competition') + '</button>' + (S.editId ? '<button class="btn ghost" type="button" data-act="cancel-edit">Cancel</button>' : '') + '</div></form></div>';
     return '<div class="h-row"><h2 class="sec">Upcoming <em>competitions</em></h2></div>' + h;
@@ -724,41 +725,165 @@
     }).join('') : '<p class="empty">No times yet.</p>') + '</div>';
     return eventsCard + goals + qt;
   }
-  function badgeCatalog(sid) {
-    var s = sw(sid), manual = (db.pbs || []).filter(function (p) { return p.swimmerId === sid; }), md = medals(sid), att = attOf(sid), months = {};
-    att.list.forEach(function (a) { var k = a.date.slice(0, 7); months[k] = months[k] || { p: 0, t: 0 }; months[k].t++; if (a.present) months[k].p++; });
-    var perfect = Object.keys(months).some(function (k) { return months[k].t > 0 && months[k].p === months[k].t; });
-    var smashed = false, qt = false;
-    goalEvents(sid).forEach(function (ev) {
-      var tg = targetOf(sid, ev), pb = manualPb(sid, ev), latest = latestResult(sid, ev), best = null;
-      if (pb) best = pb.time;
-      if (latest && (best == null || latest.time < best)) best = latest.time;
-      if (tg != null && best != null && best <= tg) smashed = true;
-      if (pb && qtsFor(s, ev, pb.time).some(function (q) { return q.hit; })) qt = true;
+  function eventKind(id) { var e = (db.events || []).filter(function (x) { return x.id === id; })[0]; return e ? e.kind : ''; }
+  function isLongEvent(ev) { return String(ev).indexOf('800') === 0 || String(ev).indexOf('1500') === 0; }
+  function isOverseas(country) { var c = String(country || '').trim().toLowerCase(); return !!c && c !== 'malaysia'; }
+  function repOf(r) { if (r.representing) return r.representing; var comp = (db.competitions || []).filter(function (c) { return c.name === r.competition; })[0]; return comp ? (comp.representing || '') : ''; }
+  function countryOf(r) { if (r.country) return r.country; var comp = (db.competitions || []).filter(function (c) { return c.name === r.competition; })[0]; return comp ? (comp.country || '') : ''; }
+  function stdShort(name) { var n = String(name || '').toLowerCase(); if (n.indexOf('cmas') >= 0) return 'CMAS'; if (n.indexOf('national') >= 0) return 'National'; if (n.indexOf('state') >= 0) return 'State'; return name; }
+  function recentBadge(date) { if (!date) return false; var d = parseISO(date), t = new Date(); t.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0); var diff = (t - d) / 86400000; return diff >= 0 && diff <= 30; }
+  function monthBuckets(sid) {
+    var months = {};
+    attOf(sid).list.forEach(function (a) {
+      var k = a.date.slice(0, 7);
+      months[k] = months[k] || { p: 0, t: 0, last: a.date };
+      months[k].t++; if (a.present) months[k].p++;
+      if (a.date > months[k].last) months[k].last = a.date;
     });
-    var auto = [
-      { id: 'first-pb', name: 'First PB', how: 'Have a coach record a PB', earned: manual.length >= 1 },
-      { id: 'five-pb', name: '5 PBs', how: 'Have PBs in 5 events', earned: manual.length >= 5 },
-      { id: 'first-medal', name: 'First medal', how: 'Finish on the podium', earned: md.gold + md.silver + md.bronze >= 1 },
-      { id: 'gold', name: 'Gold medal', how: 'Win a gold medal', earned: md.gold >= 1 },
-      { id: 'perfect-month', name: '100% month', how: 'Attend every session in a month', earned: perfect },
-      { id: 'att-10', name: '10 sessions', how: 'Attend 10 sessions', earned: att.present >= 10 },
-      { id: 'att-25', name: '25 sessions', how: 'Attend 25 sessions', earned: att.present >= 25 },
-      { id: 'att-50', name: '50 sessions', how: 'Attend 50 sessions', earned: att.present >= 50 },
-      { id: 'target', name: 'Target smashed', how: 'Swim at or under a goal time', earned: smashed },
-      { id: 'first-qt', name: 'First QT', how: 'Swim a PB inside an example qualifying time', earned: qt }
-    ];
-    (db.customBadges || []).filter(function (b) { return b.swimmerId === sid; }).forEach(function (b) { auto.push({ id: b.id, name: b.name, how: b.note || 'Awarded by a coach', earned: true, custom: true, by: b.by }); });
-    return auto;
+    return months;
   }
-  function badgesBlock(sid, staff) {
-    var seen = seenSet(), items = badgeCatalog(sid), anyNew = false;
-    var h = '<div class="card" style="margin-top:14px"><h3 class="card-t">Badges & milestones</h3><div class="shelf">' + items.map(function (b) {
-      var fresh = b.earned && seen.indexOf(sid + ':' + b.id) < 0; if (fresh) anyNew = true;
-      return '<div class="mil' + (b.earned ? '' : ' locked') + (fresh ? ' new' : '') + '"><b>' + esc(b.name) + '</b>' + (fresh ? '<span class="newflag">New badge!</span>' : '') + '<span>' + esc(b.earned ? (b.custom ? b.how : 'Earned') : b.how) + '</span></div>';
-    }).join('') + '</div>' + (anyNew ? '<div class="actions"><button class="btn sm" data-act="seen-badges" data-id="' + sid + '">Mark badges seen</button></div>' : '') +
-      (staff ? '<form class="form" id="badgeForm" data-sid="' + sid + '" style="margin-top:12px"><div class="row c2"><div class="f"><label>Custom badge</label><input name="name" placeholder="Example award name" required></div><div class="f"><label>Note</label><input name="note" placeholder="Why this was awarded"></div></div><div class="actions"><button class="btn sm" type="submit">Award badge</button></div></form>' : '') + '</div>';
-    return h;
+  function addMonth(ym) { var y = +ym.slice(0, 4), m = +ym.slice(5) + 1; if (m === 13) { m = 1; y++; } return y + '-' + (m < 10 ? '0' : '') + m; }
+  function ironRuns(months) {
+    var keys = Object.keys(months).sort();
+    if (!keys.length) return { best: 0, reached: {} };
+    var run = 0, best = 0, reached = {}, cur = keys[0], last = keys[keys.length - 1];
+    while (cur <= last) {
+      var rec = months[cur], ok = rec && rec.t > 0 && rec.p / rec.t >= 0.899;
+      if (ok) { run++; if (run > best) best = run; [3, 6, 12].forEach(function (n) { if (run === n && !reached[n]) reached[n] = rec.last; }); }
+      else run = 0;
+      cur = addMonth(cur);
+      if (cur.length < 7) break;
+    }
+    return { best: best, reached: reached };
+  }
+  function pbStory(sid) {
+    var best = 0, dropDate = '', improved = '';
+    (db.pbs || []).filter(function (p) { return p.swimmerId === sid; }).forEach(function (p) {
+      var hist = (p.history && p.history.length ? p.history : [{ time: p.time, date: p.date }]).slice().sort(byDate);
+      for (var i = 1; i < hist.length; i++) {
+        var drop = Math.round((hist[i - 1].time - hist[i].time) * 100) / 100;
+        if (drop > 0.001) {
+          if (!improved || hist[i].date > improved) improved = hist[i].date;
+          if (drop > best) { best = drop; dropDate = hist[i].date; }
+        }
+      }
+    });
+    return { best: best, dropDate: dropDate, improved: improved };
+  }
+  function standardsHit(sid) {
+    var s = sw(sid), hits = [], closest = null, seen = {};
+    (db.pbs || []).forEach(function (p) { if (p.swimmerId === sid) seen[p.event] = 1; });
+    resultsOf(sid).forEach(function (r) { seen[r.event] = 1; });
+    Object.keys(seen).forEach(function (ev) {
+      var pb = manualPb(sid, ev), latest = latestResult(sid, ev), time = null, date = '';
+      if (pb) { time = pb.time; date = pb.date; }
+      if (latest && (time == null || latest.time < time)) { time = latest.time; date = latest.date; }
+      if (time == null) return;
+      qtsFor(s, ev, time).forEach(function (q) {
+        var short = stdShort(q.name);
+        if (q.hit) {
+          var cur = hits.filter(function (h) { return h.short === short; })[0];
+          if (!cur) hits.push({ short: short, date: date });
+          else if (date && (!cur.date || date < cur.date)) cur.date = date;
+        } else if (q.off != null && q.off > 0 && (closest == null || q.off < closest.off)) closest = { short: short, off: q.off };
+      });
+    });
+    var order = { State: 1, National: 2, CMAS: 3 };
+    hits.sort(function (a, b) { return (order[a.short] || 9) - (order[b.short] || 9); });
+    return { hits: hits, closest: closest };
+  }
+  function badgeCatalog(sid) {
+    var att = attOf(sid), months = monthBuckets(sid), iron = ironRuns(months), story = pbStory(sid), std = standardsHit(sid);
+    var presentDates = att.list.filter(function (a) { return a.present; }).map(function (a) { return a.date; });
+    var res = resultsOf(sid);
+    var perfectDate = '';
+    Object.keys(months).sort().forEach(function (k) { var rec = months[k]; if (!perfectDate && rec.t > 0 && rec.p === rec.t) perfectDate = rec.last; });
+    var smashDate = '';
+    goalEvents(sid).forEach(function (ev) {
+      var tg = targetOf(sid, ev), pb = manualPb(sid, ev), latest = latestResult(sid, ev);
+      if (tg == null) return;
+      if (pb && pb.time <= tg && (!smashDate || pb.date < smashDate)) smashDate = pb.date;
+      if (latest && latest.time <= tg && (!smashDate || latest.date < smashDate)) smashDate = latest.date;
+    });
+    var kinds = {};
+    (db.pbs || []).filter(function (p) { return p.swimmerId === sid; }).forEach(function (p) { var k = eventKind(p.event); if (k) kinds[k] = p.date; });
+    var strokes = ['Bifins', 'Surface', 'Immersion', 'Apnea'].filter(function (k) { return kinds[k]; });
+    var allDate = strokes.length === 4 ? ['Bifins', 'Surface', 'Immersion', 'Apnea'].map(function (k) { return kinds[k]; }).sort().pop() : '';
+    var longs = res.filter(function (r) { return isLongEvent(r.event); });
+    var golds = res.filter(function (r) { return r.medal === 'gold'; });
+    var records = res.filter(function (r) { return r.record === 'state' || r.record === 'national'; });
+    var flagged = res.filter(function (r) { var rep = repOf(r); return rep === 'KL' || rep === 'Malaysia'; });
+    var overs = res.filter(function (r) { return isOverseas(countryOf(r)); });
+    function firstMedal(m) { var list = res.filter(function (r) { return r.medal === m; }); return list.length ? list[0].date : ''; }
+    function item(o) {
+      var earned = !!o.date;
+      return { id: o.id, name: o.name, group: o.group, earned: earned, date: o.date || '', how: o.how, detail: earned ? (o.detail || 'Earned') : o.how, progress: o.progress == null ? null : Math.max(0, Math.min(1, o.progress)), progressText: o.progressText || '', tone: o.tone || '' };
+    }
+    var items = [
+      item({ id: 'first-splash', group: 'Attendance', name: 'First Splash', date: presentDates[0] || '', how: 'Attend your first session' }),
+      item({ id: 'perfect-month', group: 'Attendance', name: 'Perfect Month', date: perfectDate, how: 'Attend every session in a calendar month' }),
+      item({ id: 'iron-3', group: 'Attendance', name: 'Iron Titan · 3', date: iron.reached[3] || '', how: '3 months in a row at 90% or better', progress: iron.best / 3, progressText: Math.min(iron.best, 3) + '/3 months', tone: 'teal' }),
+      item({ id: 'iron-6', group: 'Attendance', name: 'Iron Titan · 6', date: iron.reached[6] || '', how: '6 months in a row at 90% or better', progress: iron.best / 6, progressText: Math.min(iron.best, 6) + '/6 months', tone: 'teal' }),
+      item({ id: 'iron-12', group: 'Attendance', name: 'Iron Titan · 12', date: iron.reached[12] || '', how: '12 months in a row at 90% or better', progress: iron.best / 12, progressText: Math.min(iron.best, 12) + '/12 months', tone: 'teal' }),
+      item({ id: 'sessions-50', group: 'Attendance', name: '50 Sessions', date: presentDates.length >= 50 ? presentDates[49] : '', how: 'Attend 50 sessions', progress: presentDates.length / 50, progressText: Math.min(presentDates.length, 50) + '/50 sessions' }),
+      item({ id: 'sessions-100', group: 'Attendance', name: '100 Sessions', date: presentDates.length >= 100 ? presentDates[99] : '', how: 'Attend 100 sessions', progress: presentDates.length / 100, progressText: Math.min(presentDates.length, 100) + '/100 sessions' }),
+      item({ id: 'sessions-250', group: 'Attendance', name: '250 Sessions', date: presentDates.length >= 250 ? presentDates[249] : '', how: 'Attend 250 sessions', progress: presentDates.length / 250, progressText: Math.min(presentDates.length, 250) + '/250 sessions' }),
+      item({ id: 'new-pb', group: 'Times', name: 'New PB', date: story.improved, how: 'A coach enters a PB that beats the previous one' }),
+      item({ id: 'target', group: 'Times', name: 'Target Smashed', date: smashDate, how: 'PB or latest time beats your own target' }),
+      item({ id: 'big-drop', group: 'Times', name: 'Big Drop', date: story.best >= 1 ? story.dropDate : '', how: 'Take 1.00s or more off a PB in one update', progress: story.best / 1, progressText: story.best.toFixed(2) + 's / 1.00s' }),
+      item({ id: 'qualifier', group: 'Times', name: 'Qualifier', date: std.hits.length ? std.hits.map(function (h) { return h.date; }).sort()[0] : '', how: 'Meet a State, National or CMAS qualifying time', detail: std.hits.length ? std.hits.map(function (h) { return h.short; }).join(' · ') : '', progress: std.hits.length ? 1 : (std.closest ? 0 : 0), progressText: std.hits.length ? '' : (std.closest ? std.closest.off.toFixed(2) + 's off ' + std.closest.short : 'No standard to compare') }),
+      item({ id: 'all-rounder', group: 'Times', name: 'All-Rounder', date: allDate, how: 'Have a PB in Bifins, Surface, Immersion and Apnea', progress: strokes.length / 4, progressText: strokes.length + '/4 strokes' }),
+      item({ id: 'distance', group: 'Times', name: 'Distance Titan', date: longs.length ? longs[0].date : '', how: 'Race an 800m or 1500m' }),
+      item({ id: 'first-race', group: 'Competitions', name: 'First Race', date: res.length ? res[0].date : '', how: 'Swim a competition' }),
+      item({ id: 'podium-bronze', group: 'Competitions', name: 'Podium · Bronze', date: firstMedal('bronze'), how: 'Finish third', tone: 'bronze' }),
+      item({ id: 'podium-silver', group: 'Competitions', name: 'Podium · Silver', date: firstMedal('silver'), how: 'Finish second', tone: 'silver' }),
+      item({ id: 'podium-gold', group: 'Competitions', name: 'Podium · Gold', date: firstMedal('gold'), how: 'Finish first', tone: 'gold' }),
+      item({ id: 'golden-5', group: 'Competitions', name: 'Golden Titan · 5', date: golds.length >= 5 ? golds[4].date : '', how: 'Win 5 gold medals', progress: golds.length / 5, progressText: Math.min(golds.length, 5) + '/5 golds', tone: 'gold' }),
+      item({ id: 'golden-10', group: 'Competitions', name: 'Golden Titan · 10', date: golds.length >= 10 ? golds[9].date : '', how: 'Win 10 gold medals', progress: golds.length / 10, progressText: Math.min(golds.length, 10) + '/10 golds', tone: 'gold' }),
+      item({ id: 'record', group: 'Competitions', name: 'Record Breaker', date: records.length ? records[0].date : '', how: 'A result flagged as a state or national record', detail: records.some(function (r) { return r.record === 'national'; }) && records.some(function (r) { return r.record === 'state'; }) ? 'State and national record' : (records.some(function (r) { return r.record === 'national'; }) ? 'National record' : (records.length ? 'State record' : '')) }),
+      item({ id: 'flag', group: 'Competitions', name: 'Flag Bearer', date: flagged.length ? flagged[0].date : '', how: 'Compete representing KL or Malaysia', detail: flagged.length ? 'Represented ' + (flagged.some(function (r) { return repOf(r) === 'Malaysia'; }) && flagged.some(function (r) { return repOf(r) === 'KL'; }) ? 'KL and Malaysia' : repOf(flagged[0])) : '' }),
+      item({ id: 'globe', group: 'Competitions', name: 'Globetrotter', date: overs.length ? overs[0].date : '', how: 'Compete at a meet outside Malaysia', detail: overs.length ? overs.map(function (r) { return countryOf(r); }).filter(function (c, i, a) { return a.indexOf(c) === i; }).join(', ') : '' })
+    ];
+    function nextOf(ids) { for (var i = 0; i < ids.length; i++) { var b = items.filter(function (x) { return x.id === ids[i]; })[0]; if (b && !b.earned) return b; } return null; }
+    var next = [nextOf(['sessions-50', 'sessions-100', 'sessions-250']), nextOf(['iron-3', 'iron-6', 'iron-12']), nextOf(['golden-5', 'golden-10']), nextOf(['big-drop']), nextOf(['all-rounder'])].filter(Boolean);
+    return { items: items, next: next };
+  }
+  function badgesBlock(sid) {
+    var pack = badgeCatalog(sid), items = pack.items;
+    var fresh = items.filter(function (b) { return b.earned && recentBadge(b.date); });
+    if (fresh.length) {
+      S.notedBadges = S.notedBadges || {};
+      if (!S.notedBadges[sid]) {
+        S.notedBadges[sid] = true;
+        var names = fresh.slice(0, 3).map(function (b) { return b.name; }).join(', ');
+        setTimeout(function () { toast('New badges: ' + names + (fresh.length > 3 ? ' +' + (fresh.length - 3) : '')); }, 400);
+      }
+    }
+    function card(b) {
+      var freshOn = b.earned && recentBadge(b.date);
+      return '<div class="mil' + (b.earned ? '' : ' locked') + (b.tone ? ' tone-' + b.tone : '') + (freshOn ? ' fresh' : '') + '"><b>' + esc(b.name) + '</b>' +
+        (freshOn ? '<span class="newflag">Last 30 days</span>' : '') +
+        '<span>' + esc(b.earned ? b.detail : b.how) + '</span>' +
+        (b.earned && b.date ? '<span class="when">' + fmtShort(b.date) + '</span>' : '') +
+        (!b.earned && b.progressText ? '<span class="when">' + esc(b.progressText) + '</span>' + (b.progress != null ? '<div class="bar"><i style="width:' + Math.round(b.progress * 100) + '%"></i></div>' : '') : '') +
+        '</div>';
+    }
+    var groups = ['Attendance', 'Times', 'Competitions'];
+    var labels = { Attendance: 'Attendance', Times: 'Times & goals', Competitions: 'Competitions' };
+    var next = pack.next.length ? '<div class="nexts"><p class="bgroup">Next milestone</p>' + pack.next.map(function (b) {
+      return '<div class="next"><b>' + esc(b.name) + '<span>' + esc(b.progressText || '') + '</span></b>' + (b.progress != null ? '<div class="bar"><i style="width:' + Math.round(b.progress * 100) + '%"></i></div>' : '') + '</div>';
+    }).join('') + '</div>' : '';
+    var wall = groups.map(function (g) {
+      return '<p class="bgroup">' + labels[g] + '</p><div class="shelf">' + items.filter(function (b) { return b.group === g; }).map(card).join('') + '</div>';
+    }).join('');
+    var banner = fresh.length ? '<div class="fresh-note">Earned in the last 30 days: ' + esc(fresh.map(function (b) { return b.name; }).join(', ')) + '</div>' : '';
+    return '<div class="card" style="margin-top:14px" id="badge-wall"><h3 class="card-t">Badges & milestones</h3><p class="hint">Every badge is worked out from attendance, PBs and results. Nothing here is awarded by hand.</p>' + banner + next + wall + '</div>';
+  }
+  function medalSelect(name, value) {
+    return '<select name="' + name + '" aria-label="Medal">' + [['', 'No medal'], ['bronze', 'Bronze'], ['silver', 'Silver'], ['gold', 'Gold']].map(function (o) { return '<option value="' + o[0] + '"' + ((value || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+  }
+  function recordSelect(name, value) {
+    return '<select name="' + name + '" aria-label="Record">' + [['', 'No record'], ['state', 'State record'], ['national', 'National record']].map(function (o) { return '<option value="' + o[0] + '"' + ((value || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
   }
   function viewMeetResults() {
     var comps = db.competitions || [];
@@ -771,11 +896,12 @@
         var s = sw(en.swimmerId); if (!s) return;
         (en.events || []).forEach(function (ev) {
           var existing = db.results.filter(function (r) { return r.swimmerId === s.id && r.event === ev && r.competition === comp.name; }).sort(byDate).pop();
-          rows += '<tr><td>' + esc(fullName(s)) + '</td><td>' + evName(ev) + '</td><td><input name="time-' + s.id + '-' + ev + '" inputmode="decimal" placeholder="34.52 or 1:05.30" value="' + (existing ? fmtTime(existing.time) : '') + '"></td><td class="small muted">' + (existing ? fmtTime(existing.time) + ' · ' + fmtShort(existing.date) : '—') + '</td></tr>';
+          rows += '<tr><td>' + esc(fullName(s)) + '</td><td>' + evName(ev) + '</td><td><input name="time-' + s.id + '-' + ev + '" inputmode="decimal" placeholder="34.52 or 1:05.30" value="' + (existing ? fmtTime(existing.time) : '') + '"></td><td>' + medalSelect('medal-' + s.id + '-' + ev, existing && existing.medal) + '</td><td>' + recordSelect('record-' + s.id + '-' + ev, existing && existing.record) + '</td><td class="small muted">' + (existing ? fmtTime(existing.time) + ' · ' + fmtShort(existing.date) : '—') + '</td></tr>';
         });
       });
     }
-    return '<div class="h-row"><h2 class="sec">Meet <em>results</em></h2></div><div class="card"><form class="form" id="meetForm"><div class="f"><label>Competition</label><select id="meetPick" name="meet">' + comps.map(function (c) { return '<option value="' + c.id + '"' + (c.id === S.meetId ? ' selected' : '') + '>' + esc(c.name) + ' · ' + fmtShort(c.start) + '</option>'; }).join('') + '</select></div><p class="hint">Imported from results PDF. Enter a time for each swimmer and event. Leave a box blank to leave that result unchanged.</p><div class="goals"><table class="t"><thead><tr><th>Swimmer</th><th>Event</th><th>Time</th><th>On file</th></tr></thead><tbody>' + (rows || '<tr><td>No entries on this meet.</td></tr>') + '</tbody></table></div><div class="f"><label>Note</label><input name="note" value="Imported from results PDF"></div><div class="actions"><button class="btn" type="submit">Save results</button></div></form></div>';
+    var rep = comp ? (comp.representing || '') : '', country = comp ? (comp.country || 'Malaysia') : 'Malaysia';
+    return '<div class="h-row"><h2 class="sec">Meet <em>results</em></h2></div><div class="card"><form class="form" id="meetForm"><div class="f"><label>Competition</label><select id="meetPick" name="meet">' + comps.map(function (c) { return '<option value="' + c.id + '"' + (c.id === S.meetId ? ' selected' : '') + '>' + esc(c.name) + ' · ' + fmtShort(c.start) + '</option>'; }).join('') + '</select></div><div class="row c2"><div class="f"><label>Representing</label><select name="representing"><option value="">Not a team</option><option value="KL"' + (rep === 'KL' ? ' selected' : '') + '>KL</option><option value="Malaysia"' + (rep === 'Malaysia' ? ' selected' : '') + '>Malaysia</option></select><div class="hint">Saved on the competition. KL or Malaysia counts as Flag Bearer.</div></div><div class="f"><label>Country</label><input name="country" value="' + esc(country) + '" placeholder="Malaysia"><div class="hint">A country other than Malaysia counts as an overseas meet.</div></div></div><p class="hint">Imported from results PDF. Enter a time, medal and record flag for each swim. Leave a time blank to leave that row unchanged.</p><div class="goals"><table class="t"><thead><tr><th>Swimmer</th><th>Event</th><th>Time</th><th>Medal</th><th>Record</th><th>On file</th></tr></thead><tbody>' + (rows || '<tr><td>No entries on this meet.</td></tr>') + '</tbody></table></div><div class="f"><label>Note</label><input name="note" value="Imported from results PDF"></div><div class="actions"><button class="btn" type="submit">Save results</button></div></form></div>';
   }
   function viewQT() {
     return '<div class="h-row"><h2 class="sec">Qualifying <em>times</em></h2></div><p class="hint">These tables are example standards for the demo, not real qualifying times.</p>' + (db.qtTables || []).map(function (t) {
@@ -1061,7 +1187,7 @@
         var link = f.doclink.value.trim();
         if (link) docs.push({ name: 'Link', href: link, kind: 'link' });
         if (doc) docs.push({ name: doc.name, href: doc.href, kind: doc.kind });
-        var rec = { name: f.name.value.trim(), start: f.start.value, end: f.end.value || f.start.value, venue: f.venue.value.trim(), deadline: f.deadline.value, fee: parseFloat(f.fee.value) || 0, notes: f.notes.value.trim(), docs: docs, entries: entries };
+        var rec = { name: f.name.value.trim(), start: f.start.value, end: f.end.value || f.start.value, venue: f.venue.value.trim(), deadline: f.deadline.value, fee: parseFloat(f.fee.value) || 0, notes: f.notes.value.trim(), representing: f.representing.value, country: f.country.value.trim() || 'Malaysia', docs: docs, entries: entries };
         if (S.editId) { var cur = db.competitions.filter(function (c) { return c.id === S.editId; })[0]; if (cur) Object.assign(cur, rec); }
         else { rec.id = TP.newId('k'); db.competitions.push(rec); }
         S.editId = null; save(); render(); toast('Competition saved');
@@ -1076,8 +1202,12 @@
       var pcur = db.pbs.filter(function (p) { return p.swimmerId === f.dataset.sid && p.event === f.dataset.ev; })[0];
       if (!praw) { if (pcur) db.pbs = db.pbs.filter(function (p) { return p !== pcur; }); save(); render(); toast('PB removed'); return; }
       var pt = parseTime(praw); if (pt == null) { toast('Enter a time like 34.52 or 1:05.30'); return; }
-      if (pcur) { pcur.time = pt; pcur.date = f.date.value || todayISO(); pcur.note = f.note.value.trim(); pcur.editedBy = S.user.name; }
-      else db.pbs.push({ id: TP.newId('pb'), swimmerId: f.dataset.sid, event: f.dataset.ev, time: pt, date: f.date.value || todayISO(), note: f.note.value.trim(), editedBy: S.user.name });
+      if (pcur) {
+        pcur.history = pcur.history && pcur.history.length ? pcur.history : [{ time: pcur.time, date: pcur.date, note: pcur.note || '' }];
+        if (pt < pcur.time - 0.001) pcur.history.push({ time: pt, date: f.date.value || todayISO(), note: f.note.value.trim() });
+        pcur.time = pt; pcur.date = f.date.value || todayISO(); pcur.note = f.note.value.trim(); pcur.editedBy = S.user.name;
+      }
+      else db.pbs.push({ id: TP.newId('pb'), swimmerId: f.dataset.sid, event: f.dataset.ev, time: pt, date: f.date.value || todayISO(), note: f.note.value.trim(), editedBy: S.user.name, history: [{ time: pt, date: f.date.value || todayISO(), note: f.note.value.trim() }] });
       save(); render(); toast('PB saved'); return;
     }
     if (f.dataset.kind === 'save-events') {
@@ -1090,15 +1220,23 @@
       var comp = (db.competitions || []).filter(function (c) { return c.id === f.meet.value; })[0];
       if (!comp) return;
       var note = f.note.value.trim();
+      comp.representing = f.representing ? f.representing.value : (comp.representing || '');
+      comp.country = f.country && f.country.value.trim() ? f.country.value.trim() : (comp.country || 'Malaysia');
       var people = (comp.entries && comp.entries.length) ? comp.entries : db.swimmers.map(function (s) { return { swimmerId: s.id, events: s.events || [] }; });
       people.forEach(function (en) {
         (en.events || []).forEach(function (ev) {
           var input = f['time-' + en.swimmerId + '-' + ev];
-          if (!input || !String(input.value || '').trim()) return;
-          var time = parseTime(input.value); if (time == null) return;
+          var medalEl = f['medal-' + en.swimmerId + '-' + ev];
+          var recordEl = f['record-' + en.swimmerId + '-' + ev];
+          var timeRaw = input && String(input.value || '').trim();
           var existing = db.results.filter(function (r) { return r.swimmerId === en.swimmerId && r.event === ev && r.competition === comp.name; })[0];
-          if (existing) { existing.time = time; existing.date = comp.start; existing.note = note; }
-          else db.results.push({ id: TP.newId('r'), swimmerId: en.swimmerId, competition: comp.name, date: comp.start, event: ev, time: time, place: null, medal: '', note: note });
+          if (!timeRaw && !existing) return;
+          var time = timeRaw ? parseTime(timeRaw) : null;
+          if (timeRaw && time == null) return;
+          var medal = medalEl ? medalEl.value : '';
+          var record = recordEl ? recordEl.value : '';
+          if (existing) { if (time != null) existing.time = time; existing.date = comp.start; existing.note = note; existing.medal = medal; existing.record = record; existing.representing = comp.representing || ''; existing.country = comp.country || ''; }
+          else db.results.push({ id: TP.newId('r'), swimmerId: en.swimmerId, competition: comp.name, date: comp.start, event: ev, time: time, place: null, medal: medal, record: record, representing: comp.representing || '', country: comp.country || '', note: note });
         });
       });
       save(); render(); toast('Results saved'); return;
@@ -1124,12 +1262,6 @@
       if (!f.name.value.trim()) return;
       db.qtTables.push({ id: TP.newId('q'), name: f.name.value.trim(), note: 'Fictional example standards — not real qualifying times.', rows: [] });
       save(); render(); toast('Table created'); return;
-    }
-    if (f.id === 'badgeForm') {
-      if (!f.name.value.trim()) return;
-      db.customBadges = db.customBadges || [];
-      db.customBadges.push({ id: TP.newId('b'), swimmerId: f.dataset.sid, name: f.name.value.trim(), note: f.note.value.trim(), date: todayISO(), by: S.user.name });
-      save(); render(); toast('Badge awarded'); return;
     }
     if (f.id === 'mediaForm') {
       var ids = vals('swimmerIds');
