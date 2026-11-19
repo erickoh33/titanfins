@@ -1,8 +1,8 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v7';
-  var VERSION = 11;
+  var KEY = 'titanPortalDemo.v8';
+  var VERSION = 12;
 
   var EVENTS = [
     { id: '50BF', name: '50m Bifins', kind: 'Bifins' },
@@ -155,6 +155,12 @@
 
     remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-12', authorRole: 'parent', authorId: 'p1', authorName: 'Jason Tan (example parent)', type: 'Feedback', text: 'Mia has been practising her starts at home in the mirror. Thank you for the extra work on Saturday.', improve: '', replies: [{ id: id('y'), date: '2026-11-13', authorRole: 'coach', authorId: 'c1', authorName: 'Coach Kilian', text: 'Glad it stuck — we will keep a few start reps in Saturday’s set.' }] });
     remarks.push({ id: id('m'), swimmerId: 's1', date: '2026-11-16', authorRole: 'finswimmer', authorId: 's1', authorName: 'Mia Tan', type: 'Goal', text: 'I want my 50m bifin under 37 seconds before the next meet.', improve: '', replies: [] });
+    var coachThread = remarks.filter(function (r) { return r.swimmerId === 's1' && r.authorRole === 'coach' && r.date === '2026-11-14'; })[0];
+    if (coachThread) coachThread.replies = [
+      { id: id('y'), date: '2026-11-15', authorRole: 'parent', authorId: 'p1', authorName: 'Jason Tan (example parent)', text: 'We saw the same thing on Saturday. She was much calmer off the block.' },
+      { id: id('y'), date: '2026-11-15', authorRole: 'finswimmer', authorId: 's1', authorName: 'Mia Tan', text: 'I will count the kicks underwater like you said.' },
+      { id: id('y'), date: '2026-11-16', authorRole: 'coach', authorId: 'c1', authorName: 'Coach Kilian', text: 'Good. We will check the start again this Saturday.' }
+    ];
 
     function exampleSlip(label) {
       var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="280"><rect width="100%" height="100%" fill="#f4f1ea"/><text x="28" y="54" font-family="sans-serif" font-size="22" fill="#111">EXAMPLE PAYMENT SLIP</text><text x="28" y="98" font-family="sans-serif" font-size="16" fill="#333">' + label + '</text><text x="28" y="140" font-family="sans-serif" font-size="14" fill="#666">Not a real bank receipt</text></svg>';

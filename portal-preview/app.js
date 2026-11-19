@@ -8,7 +8,7 @@
   var GROUPS = ['Junior', 'Development', 'Performance'];
   var DEMO_PASSWORD = 'demo1234';
 
-  var S = { user: null, tab: null, childId: null, viewSwimmer: null, calMonth: null, filter: { q: '', venue: '', group: '', mine: true }, manage: 'swimmers', editId: null, prefill: {}, att: null, remFilter: 'all', editRemark: null, replyTo: null };
+  var S = { user: null, tab: null, childId: null, viewSwimmer: null, calMonth: null, filter: { q: '', venue: '', group: '', mine: true }, manage: 'swimmers', editId: null, prefill: {}, att: null, remFilter: 'all', editRemark: null, replyTo: null, editReply: null, openReplies: {} };
 
   /* ---------- helpers ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -95,7 +95,7 @@
   }
   function homeTab(role) { return role === 'parent' || role === 'finswimmer' ? 'report' : 'swimmers'; }
   function login(u) {
-    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.remFilter = 'all'; S.notedBadges = {};
+    S.user = u; S.tab = homeTab(u.role); S.viewSwimmer = null; S.childId = null; S.calMonth = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.editReply = null; S.openReplies = {}; S.remFilter = 'all'; S.notedBadges = {};
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch (e) { }
     render(); window.scrollTo(0, 0);
   }
@@ -195,7 +195,9 @@
   function remarkRole(r) { return r.authorRole || 'coach'; }
   function remarkAuthor(r) { return r.authorName || coachName(r.authorId || r.coachId); }
   function badgeRole(role) { return role === 'parent' || role === 'finswimmer' ? role : 'coach'; }
-  function roleLabel(role) { return badgeRole(role) === 'finswimmer' ? 'Finswimmer' : badgeRole(role) === 'parent' ? 'Parent' : 'Coach'; }
+  function replyBadgeRole(role) { return role === 'parent' || role === 'finswimmer' || role === 'admin' ? role : 'coach'; }
+  function roleLabel(role) { var b = replyBadgeRole(role); return b === 'finswimmer' ? 'Finswimmer' : b === 'parent' ? 'Parent' : b === 'admin' ? 'Admin' : 'Coach'; }
+  function actorId() { return S.user && S.user.role === 'finswimmer' ? (S.user.swimmerId || S.user.id) : (S.user ? S.user.id : ''); }
   function canWriteRemark(sid) {
     if (!S.user) return false;
     if (S.user.role === 'finswimmer') return (S.user.swimmerId || S.user.id) === sid;
@@ -208,7 +210,33 @@
     if (S.user.role === 'finswimmer') return remarkRole(r) === 'finswimmer' && r.authorId === (S.user.swimmerId || S.user.id);
     return false;
   }
-  function canReplyRemark() { return !!(S.user && (S.user.role === 'coach' || S.user.role === 'admin')); }
+  function canReplyRemark(sid) {
+    if (!S.user) return false;
+    if (S.user.role === 'finswimmer') return (S.user.swimmerId || S.user.id) === sid;
+    if (S.user.role === 'parent') return myChildren().some(function (k) { return k.id === sid; });
+    return S.user.role === 'coach' || S.user.role === 'admin';
+  }
+  function ownsReply(y) {
+    if (!S.user || !y) return false;
+    return y.authorRole === S.user.role && y.authorId === actorId();
+  }
+  function replyView(r, y) {
+    var role = y.authorRole || 'coach';
+    if (S.editReply === y.id && ownsReply(y)) {
+      return '<form class="form reply-form" id="replyEditForm" data-rid="' + r.id + '" data-yid="' + y.id + '"><div class="f"><label>Edit your reply</label><textarea name="text">' + esc(y.text || '') + '</textarea></div><div class="actions"><button class="btn sm" type="submit">Save reply</button><button class="btn sm ghost" type="button" data-act="cancel-reply-edit">Cancel</button></div></form>';
+    }
+    return '<div class="reply"><div class="rh"><b>' + esc(y.authorName || 'Coach') + '</b><span class="role-badge role-' + replyBadgeRole(role) + '">' + roleLabel(role) + '</span><span>' + fmtDate(y.date) + '</span></div><div>' + esc(y.text) + '</div>' +
+      (ownsReply(y) ? '<div class="row-actions"><button type="button" data-editreply="' + y.id + '" data-rid="' + r.id + '">Edit</button><button type="button" data-delreply="' + y.id + '" data-rid="' + r.id + '">Delete</button></div>' : '') + '</div>';
+  }
+  function remarkThread(r, sid) {
+    var replies = (r.replies || []).slice().sort(byDate);
+    var open = !!(S.openReplies && S.openReplies[r.id]);
+    var shown = replies.length > 2 && !open ? replies.slice(-2) : replies;
+    var count = replies.length ? '<div class="reply-count"><span>' + replies.length + (replies.length === 1 ? ' reply' : ' replies') + '</span>' +
+      (replies.length > 2 ? '<button type="button" data-thread="' + r.id + '">' + (open ? 'Collapse' : 'Show all ' + replies.length) + '</button>' : '') + '</div>' : '';
+    var box = S.replyTo === r.id && canReplyRemark(sid) ? '<form class="form reply-form" id="replyForm" data-rid="' + r.id + '"><div class="f"><label>Reply</label><textarea name="text" placeholder="Write a reply"></textarea></div><div class="actions"><button class="btn sm" type="submit">Post reply</button><button class="btn sm ghost" type="button" data-act="cancel-reply">Cancel</button></div></form>' : '';
+    return count + shown.map(function (y) { return replyView(r, y); }).join('') + box;
+  }
   function remarkComposer(sid, existing) {
     var e = existing || { text: '', type: '' };
     return '<form class="form" id="cardRemForm" data-sid="' + sid + '"' + (existing ? ' data-id="' + existing.id + '"' : '') + ' style="margin-bottom:12px">' +
@@ -244,14 +272,11 @@
       (editing ? remarkComposer(sid, editing) : '') +
       (rem.length ? rem.map(function (r) {
         var role = roleOf(r), imp = role === 'coach' || !r.authorRole ? String(r.improve || '').split(/\n+/).filter(Boolean) : [];
-        var replies = r.replies || [];
         return '<div class="remark"><div class="rh"><b>' + esc(remarkAuthor(r)) + '</b>' + '<span class="role-badge role-' + badgeRole(role) + '">' + roleLabel(role) + '</span><span>' + fmtDate(r.date) + '</span></div>' +
           (r.type ? '<div class="rem-type">' + esc(r.type) + '</div>' : '') + '<div>' + esc(r.text) + '</div>' +
           (imp.length ? '<div class="imp"><b>What to improve</b><ul>' + imp.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '') +
-          replies.map(function (y) { return '<div class="reply"><div class="rh"><b>' + esc(y.authorName || 'Coach') + '</b><span class="role-badge role-' + badgeRole(y.authorRole || 'coach') + '">' + roleLabel(y.authorRole || 'coach') + '</span><span>' + fmtDate(y.date) + '</span></div><div>' + esc(y.text) + '</div></div>'; }).join('') +
-          '<div class="row-actions">' + (ownsRemark(r) ? '<button type="button" data-editrem="' + r.id + '">Edit</button><button type="button" data-delrem="' + r.id + '">Delete</button>' : '') + (canReplyRemark() ? '<button type="button" data-reply="' + r.id + '">Reply</button>' : '') + '</div>' +
-          (S.replyTo === r.id && canReplyRemark() ? '<form class="form" id="replyForm" data-rid="' + r.id + '" style="margin-top:8px"><div class="f"><label>Reply</label><textarea name="text" placeholder="Reply to this remark"></textarea></div><div class="actions"><button class="btn sm" type="submit">Post reply</button><button class="btn sm ghost" type="button" data-act="cancel-reply">Cancel</button></div></form>' : '') +
-          '</div>';
+          remarkThread(r, sid) +
+          '<div class="row-actions">' + (ownsRemark(r) ? '<button type="button" data-editrem="' + r.id + '">Edit</button><button type="button" data-delrem="' + r.id + '">Delete</button>' : '') + (canReplyRemark(sid) ? '<button type="button" data-reply="' + r.id + '">Reply</button>' : '') + '</div></div>';
       }).join('') : '<p class="empty">No remarks' + (filter === 'all' ? ' yet' : ' in this filter') + '.</p>') + '</div></div>';
 
     // Competition results + attendance
@@ -958,16 +983,26 @@
 
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-demo],[data-act],[data-tab],[data-child],[data-open],[data-go],[data-sub],[data-edit],[data-del],[data-scope],[data-remfilter],[data-editrem],[data-delrem],[data-reply]');
+    var el = e.target.closest('[data-demo],[data-act],[data-tab],[data-child],[data-open],[data-go],[data-sub],[data-edit],[data-del],[data-scope],[data-remfilter],[data-editrem],[data-delrem],[data-reply],[data-editreply],[data-delreply],[data-thread]');
     if (!el) return;
     if (el.dataset.demo) { var u = findUser(el.dataset.demo); if (u) login(u); return; }
     if (el.dataset.scope) { S.filter.mine = el.dataset.scope !== 'all'; render(); return; }
     if (el.dataset.tab) { S.tab = el.dataset.tab; S.viewSwimmer = null; S.editId = null; S.prefill = {}; render(); window.scrollTo(0, 0); return; }
-    if (el.dataset.child) { S.childId = el.dataset.child; S.calMonth = null; S.editRemark = null; S.replyTo = null; render(); return; }
+    if (el.dataset.child) { S.childId = el.dataset.child; S.calMonth = null; S.editRemark = null; S.replyTo = null; S.editReply = null; render(); return; }
     if (el.dataset.remfilter) { S.remFilter = el.dataset.remfilter; render(); return; }
     if (el.dataset.editrem) { S.editRemark = el.dataset.editrem; S.replyTo = null; render(); var rf = $('#cardRemForm'); if (rf) rf.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (el.dataset.delrem) { var rr = db.remarks.filter(function (x) { return x.id === el.dataset.delrem; })[0]; if (!ownsRemark(rr) || !confirm('Delete this remark?')) return; db.remarks = db.remarks.filter(function (x) { return x.id !== rr.id; }); if (S.editRemark === rr.id) S.editRemark = null; save(); render(); toast('Remark deleted'); return; }
-    if (el.dataset.reply) { S.replyTo = el.dataset.reply; S.editRemark = null; render(); var rp = $('#replyForm'); if (rp) rp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (el.dataset.thread) { S.openReplies = S.openReplies || {}; S.openReplies[el.dataset.thread] = !S.openReplies[el.dataset.thread]; render(); return; }
+    if (el.dataset.editreply) { S.editReply = el.dataset.editreply; S.replyTo = null; render(); var er = $('#replyEditForm'); if (er) er.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (el.dataset.delreply) {
+      var host = db.remarks.filter(function (x) { return x.id === el.dataset.rid; })[0];
+      var gone = host && (host.replies || []).filter(function (y) { return y.id === el.dataset.delreply; })[0];
+      if (!ownsReply(gone) || !confirm('Delete this reply?')) return;
+      host.replies = host.replies.filter(function (y) { return y.id !== gone.id; });
+      if (S.editReply === gone.id) S.editReply = null;
+      save(); render(); toast('Reply deleted'); return;
+    }
+    if (el.dataset.reply) { S.replyTo = el.dataset.reply; S.editRemark = null; S.editReply = null; render(); var rp = $('#replyForm'); if (rp) rp.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (el.dataset.open) { S.viewSwimmer = el.dataset.open; S.calMonth = null; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.go) { S.tab = el.dataset.go; S.prefill = { sid: el.dataset.sid }; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.sub) { S.manage = el.dataset.sub; S.editId = null; render(); return; }
@@ -976,7 +1011,7 @@
     var a = el.dataset.act;
     if (a === 'home') { e.preventDefault(); if (S.user) { S.tab = homeTab(S.user.role); S.viewSwimmer = null; render(); } }
     else if (a === 'logout') logout();
-    else if (a === 'reset') { if (confirm('Reset all demo data to the original examples? Any changes you made will be lost.')) { db = TP.reset(); S.att = null; S.calMonth = null; S.editId = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.remFilter = 'all'; if (S.user && !findUser(S.user.email)) S.user = null; render(); toast('Demo data reset'); } }
+    else if (a === 'reset') { if (confirm('Reset all demo data to the original examples? Any changes you made will be lost.')) { db = TP.reset(); S.att = null; S.calMonth = null; S.editId = null; S.prefill = {}; S.editRemark = null; S.replyTo = null; S.editReply = null; S.openReplies = {}; S.remFilter = 'all'; if (S.user && !findUser(S.user.email)) S.user = null; render(); toast('Demo data reset'); } }
     else if (a === 'back') { S.viewSwimmer = null; render(); }
     else if (a === 'cal-prev' || a === 'cal-next') { var m = S.calMonth, d = new Date(m[0], m[1] + (a === 'cal-next' ? 1 : -1), 1); S.calMonth = [d.getFullYear(), d.getMonth()]; render(); }
     else if (a === 'att-all' || a === 'att-none') { $$('[data-mark]').forEach(function (c) { S.att.marks[c.dataset.mark] = a === 'att-all'; }); render(); }
@@ -990,6 +1025,7 @@
     else if (a === 'cancel-edit') { S.editId = null; render(); }
     else if (a === 'cancel-rem') { S.editRemark = null; render(); }
     else if (a === 'cancel-reply') { S.replyTo = null; render(); }
+    else if (a === 'cancel-reply-edit') { S.editReply = null; render(); }
     else if (a === 'pay-fee') { S.payId = el.dataset.id; render(); }
     else if (a === 'fee-year') { S.feeYear = el.dataset.id; render(); }
     else if (a === 'verify-slip') {
@@ -1078,11 +1114,20 @@
       save(); render(); return;
     }
     if (f.id === 'replyForm') {
-      var rtxt = f.text.value.trim(); if (!rtxt || !canReplyRemark()) return;
-      var target = db.remarks.filter(function (x) { return x.id === f.dataset.rid; })[0]; if (!target) return;
+      var rtxt = f.text.value.trim();
+      var target = db.remarks.filter(function (x) { return x.id === f.dataset.rid; })[0];
+      if (!rtxt || !target || !canReplyRemark(target.swimmerId)) return;
       target.replies = target.replies || [];
-      target.replies.push({ id: TP.newId('y'), date: todayISO(), authorRole: S.user.role === 'admin' ? 'coach' : S.user.role, authorId: S.user.id, authorName: S.user.name, text: rtxt });
+      target.replies.push({ id: TP.newId('y'), date: todayISO(), authorRole: S.user.role, authorId: actorId(), authorName: S.user.name, text: rtxt });
+      if (target.replies.length > 2) { S.openReplies = S.openReplies || {}; S.openReplies[target.id] = true; }
       S.replyTo = null; save(); render(); toast('Reply posted'); return;
+    }
+    if (f.id === 'replyEditForm') {
+      var host = db.remarks.filter(function (x) { return x.id === f.dataset.rid; })[0];
+      var mineY = host && (host.replies || []).filter(function (y) { return y.id === f.dataset.yid; })[0];
+      var edited = f.text.value.trim();
+      if (!mineY || !ownsReply(mineY) || !edited) return;
+      mineY.text = edited; S.editReply = null; save(); render(); toast('Reply updated'); return;
     }
     if (f.id === 'remForm') {
       if (!f.text.value.trim() && !f.improve.value.trim()) { err('mErr', 'Write a remark or something to improve'); return; }
