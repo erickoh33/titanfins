@@ -1,19 +1,25 @@
 /* Titan Members' Portal — PREVIEW mock data store (example data only, no backend). */
 (function () {
   'use strict';
-  var KEY = 'titanPortalDemo.v5';
-  var VERSION = 9;
+  var KEY = 'titanPortalDemo.v6';
+  var VERSION = 10;
 
   var EVENTS = [
+    { id: '50BF', name: '50m Bifins', kind: 'Bifins' },
+    { id: '100BF', name: '100m Bifins', kind: 'Bifins' },
+    { id: '200BF', name: '200m Bifins', kind: 'Bifins' },
+    { id: '400BF', name: '400m Bifins', kind: 'Bifins' },
+    { id: '800BF', name: '800m Bifins', kind: 'Bifins' },
+    { id: '1500BF', name: '1500m Bifins', kind: 'Bifins' },
     { id: '50SF', name: '50m Surface', kind: 'Surface' },
     { id: '100SF', name: '100m Surface', kind: 'Surface' },
     { id: '200SF', name: '200m Surface', kind: 'Surface' },
     { id: '400SF', name: '400m Surface', kind: 'Surface' },
-    { id: '50BF', name: '50m Bifin', kind: 'Bifin' },
-    { id: '100BF', name: '100m Bifin', kind: 'Bifin' },
-    { id: '200BF', name: '200m Bifin', kind: 'Bifin' },
-    { id: '50AP', name: '50m Apnea', kind: 'Apnea' },
-    { id: '100IM', name: '100m Immersion', kind: 'Immersion' }
+    { id: '800SF', name: '800m Surface', kind: 'Surface' },
+    { id: '1500SF', name: '1500m Surface', kind: 'Surface' },
+    { id: '100IM', name: '100m Immersion', kind: 'Immersion' },
+    { id: '200IM', name: '200m Immersion', kind: 'Immersion' },
+    { id: '50AP', name: '50m Apnea', kind: 'Apnea' }
   ];
 
   function rng(seed) { // mulberry32
@@ -45,12 +51,12 @@
 
     // Fictional example swimmers. base = approx race time (s) in early August; imp = fractional improvement by mid-Nov.
     var defs = [
-      { first: 'Mia', last: 'Tan', dob: '2016-03-14', gender: 'F', group: 'Junior', venueIds: ['v1'], coachIds: ['c1'], email: 'swimmer@example.com', rel: .9, base: { '50BF': 38.6, '100BF': 86.4, '50SF': 34.2 }, imp: .045 },
-      { first: 'Ethan', last: 'Tan', dob: '2013-07-02', gender: 'M', group: 'Development', venueIds: ['v1', 'v3'], coachIds: ['c1'], rel: .82, base: { '50SF': 24.9, '100SF': 55.6, '200SF': 125.4, '50AP': 22.7 }, imp: .03 },
-      { first: 'Nur Aisyah', last: 'Rahman', dob: '2012-05-21', gender: 'F', group: 'Performance', venueIds: ['v1', 'v4'], coachIds: ['c1'], rel: .94, base: { '50SF': 23.5, '100SF': 52.1, '400SF': 268.4, '100IM': 50.6 }, imp: .025 },
+      { first: 'Mia', last: 'Tan', dob: '2016-03-14', gender: 'F', group: 'Junior', venueIds: ['v1'], coachIds: ['c1'], email: 'swimmer@example.com', rel: .9, base: { '50SF': 34.2, '100SF': 76.8, '50BF': 38.6 }, imp: .045 },
+      { first: 'Ethan', last: 'Tan', dob: '2013-07-02', gender: 'M', group: 'Development', venueIds: ['v1', 'v3'], coachIds: ['c1'], rel: .82, base: { '100BF': 79.4, '200BF': 172.8, '50AP': 22.7 }, imp: .03 },
+      { first: 'Nur Aisyah', last: 'Rahman', dob: '2012-05-21', gender: 'F', group: 'Performance', venueIds: ['v1', 'v4'], coachIds: ['c1'], rel: .94, base: { '50SF': 23.5, '100SF': 52.1, '200SF': 118.4, '400SF': 268.4 }, imp: .025 },
       { first: 'Haziq', last: 'Iskandar', dob: '2011-12-30', gender: 'M', group: 'Performance', venueIds: ['v3', 'v1'], coachIds: ['c1'], rel: .88, base: { '50SF': 21.7, '100SF': 48.3, '200SF': 110.6, '50AP': 19.9 }, imp: .022 },
       { first: 'Chloe', last: 'Lim', dob: '2018-01-09', gender: 'F', group: 'Junior', venueIds: ['v4'], coachIds: ['c2'], rel: .8, base: { '50BF': 46.2, '100BF': 102.5 }, imp: .06 },
-      { first: 'Arjun', last: 'Nair', dob: '2015-09-17', gender: 'M', group: 'Junior', venueIds: ['v2'], coachIds: ['c2'], rel: .86, base: { '50BF': 36.1, '100BF': 80.7, '50SF': 32.1 }, imp: .05 },
+      { first: 'Arjun', last: 'Nair', dob: '2015-09-17', gender: 'M', group: 'Junior', venueIds: ['v2'], coachIds: ['c2'], rel: .86, base: { '50BF': 36.1, '100BF': 80.7, '200BF': 176.2 }, imp: .05 },
       { first: 'Sofia', last: 'Wong', dob: '2014-02-25', gender: 'F', group: 'Development', venueIds: ['v1', 'v4'], coachIds: ['c2'], rel: .9, base: { '50SF': 27.6, '100SF': 61.2, '100BF': 75.3, '200BF': 165.4 }, imp: .035 },
       { first: 'Daniel', last: 'Chong', dob: '2012-12-04', gender: 'M', group: 'Development', venueIds: ['v2', 'v3'], coachIds: ['c2'], rel: .78, base: { '50SF': 25.6, '100SF': 56.9, '200SF': 126.8, '400SF': 275.2 }, imp: .028 }
     ];
@@ -132,6 +138,7 @@
       Apnea: [['Calm and controlled on breath-hold sets.', 'Smoother entry — less splash on the start.\nKeep the arms locked in streamline the whole length.']],
       Immersion: [['Tank handling is improving.', 'Hold the tank further forward to reduce drag.\nWork on the turn: tuck tighter.']]
     };
+    R_TXT.Bifins = R_TXT.Bifin;
     var remarks = [];
     var rDates = ['2026-08-30', '2026-10-04', '2026-11-14'];
     swimmers.forEach(function (s, i) {
@@ -179,8 +186,8 @@
     ];
 
     var competitions = [
-      { id: 'k1', name: 'Example Junior Invitational 2026', start: '2026-12-06', end: '2026-12-07', venue: 'Example Aquatic Centre, Kuala Lumpur', deadline: '2026-11-28', fee: 45, notes: 'Fictional example meet — not a real competition.', docs: [{ name: 'Example invite (link)', href: 'https://example.com/example-junior-invite', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50BF', '100BF', '50SF'] }, { swimmerId: 's2', events: ['50SF', '100SF'] }, { swimmerId: 's3', events: ['50SF', '100IM'] }] },
-      { id: 'k2', name: 'Example Club Time Trial 2027', start: '2027-01-17', end: '2027-01-17', venue: 'Section 51A, Petaling Jaya', deadline: '2027-01-08', fee: 0, notes: 'Example in-house time trial. Not a real meet.', docs: [{ name: 'Example schedule (link)', href: 'https://example.com/example-time-trial', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50BF'] }, { swimmerId: 's5', events: ['50BF', '100BF'] }, { swimmerId: 's6', events: ['50BF', '50SF'] }] }
+      { id: 'k1', name: 'Example Junior Invitational 2026', start: '2026-12-06', end: '2026-12-07', venue: 'Example Aquatic Centre, Kuala Lumpur', deadline: '2026-11-28', fee: 45, notes: 'Fictional example meet — not a real competition.', docs: [{ name: 'Example invite (link)', href: 'https://example.com/example-junior-invite', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50SF', '100SF', '50BF'] }, { swimmerId: 's2', events: ['100BF', '200BF', '50AP'] }, { swimmerId: 's3', events: ['50SF', '100SF'] }] },
+      { id: 'k2', name: 'Example Club Time Trial 2027', start: '2027-01-17', end: '2027-01-17', venue: 'Section 51A, Petaling Jaya', deadline: '2027-01-08', fee: 0, notes: 'Example in-house time trial. Not a real meet.', docs: [{ name: 'Example schedule (link)', href: 'https://example.com/example-time-trial', kind: 'link' }], entries: [{ swimmerId: 's1', events: ['50SF', '50BF'] }, { swimmerId: 's5', events: ['50BF', '100BF'] }, { swimmerId: 's6', events: ['50BF', '100BF'] }] }
     ];
 
     var targets = [];
@@ -195,7 +202,7 @@
       });
     });
 
-    function qtBase(ev) { return ({ '50SF': 32, '100SF': 72, '200SF': 160, '400SF': 340, '50BF': 36, '100BF': 82, '200BF': 180, '50AP': 28, '100IM': 70 })[ev] || 40; }
+    function qtBase(ev) { return ({ '50SF': 32, '100SF': 72, '200SF': 160, '400SF': 340, '800SF': 720, '1500SF': 1400, '50BF': 36, '100BF': 82, '200BF': 180, '400BF': 390, '800BF': 820, '1500BF': 1600, '100IM': 70, '200IM': 155, '50AP': 28 })[ev] || 40; }
     var qtTables = [
       { id: 'q1', name: 'Example State QT 2026', note: 'Fictional example standards — not real qualifying times.', rows: [] },
       { id: 'q2', name: 'Example National QT 2026', note: 'Fictional example standards, stricter than the state example. Not real.', rows: [] }
@@ -210,6 +217,21 @@
       });
     });
 
+    var pbs = [];
+    ['s1', 's2'].forEach(function (sid) {
+      var s = swimmers.filter(function (x) { return x.id === sid; })[0];
+      s.events.forEach(function (ev, j) {
+        var best = null;
+        results.forEach(function (r) { if (r.swimmerId === sid && r.event === ev && (best == null || r.time < best)) best = r.time; });
+        if (best == null) return;
+        pbs.push({ id: id('pb'), swimmerId: sid, event: ev, time: r2(best * (j === 0 ? 1.012 : 0.99)), date: '2026-10-18', note: 'Example PB entered by the coach.', editedBy: 'Coach Kilian' });
+      });
+    });
+    results.forEach(function (r) {
+      var newer = results.some(function (o) { return o !== r && o.swimmerId === r.swimmerId && o.event === r.event && o.date > r.date; });
+      if (!newer && (r.swimmerId === 's1' || r.swimmerId === 's2')) r.note = 'Example — imported from results PDF';
+    });
+
     var customBadges = [{ id: 'cb1', swimmerId: 's1', name: 'Example squad spirit', note: 'Example award for helping a new swimmer settle in.', date: '2026-11-01', by: 'Coach Kilian' }];
 
     var media = [
@@ -218,7 +240,7 @@
       { id: 'md3', swimmerIds: ['s1'], date: '2026-09-20', caption: 'Example technique link', comment: 'Watch the turn, then try it next session.', kind: 'link', src: 'https://example.com/example-technique-clip', name: 'Example clip' }
     ];
 
-    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, plans: plans, planRequests: planRequests, allowPlanRequests: true, rewards: rewards, fees: fees, slips: slips, competitions: competitions, targets: targets, qtTables: qtTables, customBadges: customBadges, media: media, nextId: uid + 1 };
+    return { version: VERSION, events: EVENTS, venues: venues, coaches: coaches, admins: admins, swimmers: swimmers, parents: parents, attendance: attendance, times: times, results: results, remarks: remarks, plans: plans, planRequests: planRequests, allowPlanRequests: true, rewards: rewards, fees: fees, slips: slips, competitions: competitions, targets: targets, pbs: pbs, qtTables: qtTables, customBadges: customBadges, media: media, nextId: uid + 1 };
   }
 
   var db = null;
