@@ -158,6 +158,17 @@ table.t{width:100%;border-collapse:collapse;font-size:14px}
 .remark .imp{margin-top:8px;font-size:13.5px}
 .remark .imp b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--crimson)}
 .remark ul{margin:4px 0 0 18px}
+.role-badge{display:inline-flex;align-items:center;margin-left:6px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;color:#fff}
+.role-coach{background:#000}
+.role-parent{background:#0b6e7f}
+.role-finswimmer{background:var(--crimson)}
+.rem-type{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:4px}
+.rem-filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.rem-filters button{min-height:32px;padding:0 12px;border-radius:999px;border:1.5px solid #0002;background:#fff;font-weight:800;font-size:12.5px;cursor:pointer}
+.rem-filters button.on{background:#000;border-color:#000;color:#fff}
+.remark .reply{margin:8px 0 0 8px;padding:8px 10px;border-left:3px solid #000;background:#f4f3f2;border-radius:0 10px 10px 0}
+.remark .row-actions{display:flex;gap:10px;margin-top:8px}
+.remark .row-actions button{background:none;border:0;padding:0;color:var(--crimson);font-weight:800;font-size:12.5px;cursor:pointer;text-decoration:underline}
 
 /* forms */
 .form{display:grid;gap:12px}
@@ -185,7 +196,12 @@ table.t{width:100%;border-collapse:collapse;font-size:14px}
 .rs .tick{width:28px;height:28px;border-radius:8px;border:2px solid #ccc;display:grid;place-items:center;color:#fff;font-weight:900;flex:0 0 auto}
 .rs.on{border-color:var(--ok);background:#f2faf5}
 .rs.on .tick{background:var(--ok);border-color:var(--ok)}
+.rs.mine{box-shadow:inset 3px 0 0 var(--crimson)}
 .rs .nm{font-weight:800}.rs .sub{font-size:12px;color:var(--mute)}
+.rs .tag{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--crimson)}
+.scope{display:flex;gap:6px;margin:-4px 0 12px}
+.scope button{min-height:36px;padding:0 14px;border-radius:999px;border:1.5px solid #0002;background:#fff;font-weight:800;font-size:13px;cursor:pointer}
+.scope button.on{background:#000;border-color:#000;color:#fff}
 .counter{font-family:var(--disp);font-style:italic;font-weight:900;font-size:22px}
 
 /* swimmer list */
